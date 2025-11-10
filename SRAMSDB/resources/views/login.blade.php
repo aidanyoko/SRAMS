@@ -48,6 +48,15 @@
                             <button type="submit" class="btn btn-primary">Login</button>
                         </div>
                     </form>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <p class="text-muted mb-2">Don't have an account?</p>
+                        <a href="{{ route('register') }}" class="btn btn-outline-secondary w-100">
+                            Create Account
+                        </a>
+                    </div>
                 </div>
             </div>
             <p class="text-center mt-3 text-muted">&copy; {{ date('Y') }} SRAMSDB</p>
