@@ -157,7 +157,7 @@
           <option value="" disabled selected>Loading Rooms...</option>
         </select>
 
-        <h3 class="text-xl font-semibold mb-2">Current User</h3>
+        <h3 class="text-xl font-semibold mb-2">Current User: {{ auth()->user()->email }}</h3>
         <p class="text-sm break-all">
           ID:
           <span id="user-id-display" class="font-mono text-indigo-500"
