@@ -67,7 +67,7 @@
   <body
     class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300"
   >
-    <!-- Modal for Reservation Confirmation (Replaces alert()) -->
+    <!-- Modal for Reservation Confirmation -->
     <div
       id="confirmation-modal"
       class="fixed inset-0 hidden modal-backdrop items-center justify-center z-50"
@@ -100,10 +100,38 @@
     </div>
 
     <header class="bg-indigo-700 dark:bg-indigo-900 shadow-lg py-4">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
         <h1 class="text-3xl font-extrabold text-white">
           Study Room Availability Monitor 📚
         </h1>
+        
+        <!-- Single Auth Button -->
+        @auth
+          <!-- Logged in: Show Logout -->
+          <form method="POST" action="{{ route('logout') }}" class="inline">
+            @csrf
+            <button
+              type="submit"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+              </svg>
+              Logout
+            </button>
+          </form>
+        @else
+          <!-- Guest: Show Login -->
+          <a
+            href="{{ route('login') }}"
+            class="px-4 py-2 bg-white hover:bg-gray-100 text-indigo-700 rounded-lg transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            Login
+          </a>
+        @endauth
       </div>
     </header>
 
@@ -238,7 +266,7 @@
         db,
         auth,
         userId = null;
-      let unsubscribeRoomListener = null; // To manage the real-time listener
+      let unsubscribeRoomListener = null;
       let currentRoomId = null;
       let selectedSeatId = null;
       let isAuthReady = false;
@@ -262,12 +290,10 @@
             if (user) {
               userId = user.uid;
             } else {
-              // Sign in using custom token or anonymously
               if (initialAuthToken) {
                 await signInWithCustomToken(auth, initialAuthToken);
                 userId = auth.currentUser.uid;
               } else {
-                // Fallback to anonymous sign-in
                 const anonUser = await signInAnonymously(auth);
                 userId = anonUser.user.uid;
               }
@@ -276,7 +302,7 @@
             isAuthReady = true;
             document.getElementById("loading-indicator").textContent =
               "Loading Rooms...";
-            fetchRoomList(); // Start fetching data once authenticated
+            fetchRoomList();
           });
         } catch (error) {
           console.error("Firebase initialization failed:", error);
@@ -285,9 +311,6 @@
         }
       }
 
-      /**
-       * Generates the Firestore path for public data (rooms).
-       */
       function getRoomCollectionRef() {
         return collection(
           db,
@@ -325,9 +348,6 @@
         },
       ];
 
-      /**
-       * Checks if the collection is empty and populates it if needed.
-       */
       async function populateInitialDataIfNeeded() {
         const roomListSnapshot = await getDocs(getRoomCollectionRef());
         if (roomListSnapshot.empty) {
@@ -338,9 +358,6 @@
         }
       }
 
-      /**
-       * Fetches all rooms and populates the dropdown.
-       */
       async function fetchRoomList() {
         await populateInitialDataIfNeeded();
 
@@ -359,7 +376,6 @@
           dropdown.appendChild(option);
         });
 
-        // Auto-select the first room if available
         if (rooms.length > 0) {
           dropdown.value = rooms[0].id;
           handleRoomSelection(rooms[0].id);
@@ -384,17 +400,15 @@
 
       function handleRoomSelection(roomId) {
         if (unsubscribeRoomListener) {
-          unsubscribeRoomListener(); // Unsubscribe from the previous room
+          unsubscribeRoomListener();
         }
         currentRoomId = roomId;
-        // Start listening to the new room data
         listenToRoomData(roomId);
       }
 
       function listenToRoomData(roomId) {
         const roomDocRef = doc(getRoomCollectionRef(), roomId);
 
-        // Set up real-time listener
         unsubscribeRoomListener = onSnapshot(
           roomDocRef,
           (docSnapshot) => {
@@ -427,7 +441,6 @@
         const reservations = room.reservations || {};
         const currentTime = Date.now();
 
-        // Calculate actual occupied seats from AI detection (red boxes)
         const actualOccupied = Math.min(occupiedCount, totalSeats);
 
         for (let i = 1; i <= totalSeats; i++) {
@@ -446,13 +459,10 @@
 
           let status = "available";
 
-          // 1. Check for valid/expired Reservation (yellow)
           const reservation = reservations[seatId];
           if (reservation) {
-            // Check if reservation is expired
             if (reservation.expires < currentTime) {
-              status = "expired"; // Marked as expired, clean up later
-              // Clean up expired reservation asynchronously
+              status = "expired";
               clearExpiredReservation(room.id, seatId);
             } else {
               status = "reserved";
@@ -460,18 +470,15 @@
             }
           }
 
-          // 2. Check AI Occupancy (red). Only apply if not already reserved.
           if (status !== "reserved" && i <= actualOccupied) {
             status = "occupied";
             seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Occupied</span>`;
           }
 
-          // Apply Color and Click Listener
           if (status === "occupied") {
             seatBox.classList.add("status-red", "text-white");
           } else if (status === "reserved") {
             seatBox.classList.add("status-yellow", "text-gray-900");
-            // If the user reserved it, add a border
             if (reservation.userId === userId) {
               seatBox.classList.add(
                 "border-4",
@@ -481,7 +488,6 @@
               seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Your Hold</span>`;
             }
           } else {
-            // available or expired
             seatBox.classList.add("status-green", "text-white");
             seatBox.addEventListener("click", () => showConfirmationModal(i));
           }
@@ -492,9 +498,6 @@
 
       // --- Reservation & Cleanup ---
 
-      /**
-       * Removes an expired reservation from the database.
-       */
       async function clearExpiredReservation(roomId, seatId) {
         const roomDocRef = doc(getRoomCollectionRef(), roomId);
 
@@ -504,12 +507,11 @@
             if (roomDoc.exists()) {
               const reservations = roomDoc.data().reservations || {};
 
-              // Check if the reservation still exists and is expired
               if (
                 reservations[seatId] &&
                 reservations[seatId].expires < Date.now()
               ) {
-                delete reservations[seatId]; // Remove the entry
+                delete reservations[seatId];
                 transaction.update(roomDocRef, { reservations: reservations });
                 console.log(
                   `Cleaned up expired reservation for ${seatId} in ${roomId}.`
@@ -522,14 +524,11 @@
         }
       }
 
-      /**
-       * Confirms the reservation in the database.
-       */
       async function reserveSeat(seatNumber) {
         const roomId = currentRoomId;
         const seatId = `seat-${seatNumber}`;
         const roomDocRef = doc(getRoomCollectionRef(), roomId);
-        const expirationTime = Date.now() + 30 * 60 * 1000; // 30 minutes from now
+        const expirationTime = Date.now() + 30 * 60 * 1000;
 
         try {
           await runTransaction(db, async (transaction) => {
@@ -541,25 +540,20 @@
             const reservations = roomDoc.data().reservations || {};
             const currentReservation = reservations[seatId];
 
-            // Check if the seat is still available (not reserved by anyone)
             if (currentReservation && currentReservation.expires > Date.now()) {
               throw new Error("Seat was just reserved by another user!");
             }
 
-            // Create the new reservation object
             const newReservation = {
               userId: userId,
               reservedAt: serverTimestamp(),
-              expires: expirationTime, // Store in milliseconds since epoch
+              expires: expirationTime,
             };
 
-            // Update the reservations map
             reservations[seatId] = newReservation;
 
-            // Write the updated reservations map back to the document
             transaction.update(roomDocRef, { reservations: reservations });
 
-            // Use a visual message box for success
             showStatusMessage(
               `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
               "success"
@@ -567,7 +561,6 @@
           });
         } catch (e) {
           console.error("Reservation failed:", e);
-          // Use a visual message box for failure
           showStatusMessage(
             e.message.includes("reserved")
               ? "Seat was taken! Please try another."
@@ -579,10 +572,8 @@
 
       // --- Status & Timer Functions ---
 
-      // This function would ideally use a small custom div in the corner of the screen
       function showStatusMessage(message, type) {
         console.log(`[Status ${type.toUpperCase()}]: ${message}`);
-        // Simple visual feedback since we can't use alert()
         const header = document.querySelector("header");
         const statusDiv = document.createElement("div");
         statusDiv.textContent = message;
@@ -627,7 +618,7 @@
         }
       }
 
-      // --- Modal Functions (Replaces confirm()) ---
+      // --- Modal Functions ---
 
       function showConfirmationModal(seatNumber) {
         selectedSeatId = seatNumber;
@@ -641,7 +632,7 @@
       function closeModal() {
         document.getElementById("confirmation-modal").classList.add("hidden");
         document.getElementById("confirmation-modal").classList.remove("flex");
-        selectedSeatId = null; // Clear selection on cancel
+        selectedSeatId = null;
       }
 
       // --- Initialization ---

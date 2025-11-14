@@ -12,6 +12,11 @@ class LoginController extends Controller
      */
     public function showLoginForm()
     {
+        // If already logged in, redirect to index
+        if (Auth::check()) {
+            return redirect()->route('index');
+        }
+        
         return view('login');
     }
 
@@ -30,7 +35,8 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/index');
+            // Redirect to index (menu page) after successful login
+            return redirect()->intended(route('index'));
         }
 
         return back()->withErrors([
@@ -48,6 +54,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Redirect to home page after logout
+        return redirect()->route('home');
     }
 }
