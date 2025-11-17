@@ -157,6 +157,7 @@
           <option value="" disabled selected>Select a room...</option>
         </select>
 
+<<<<<<< HEAD
         <h3 class="text-xl font-semibold mb-2">Current Viewer</h3>
         @auth
           <p class="text-sm">
@@ -178,6 +179,18 @@
             to reserve a seat and show your email on the board.
           </p>
         @endauth
+=======
+        <h3 class="text-xl font-semibold mb-2">Current User:</h3>
+        <p class="text-sm break-all">
+          ID:
+          <span id="user-id-display" class="font-mono text-indigo-500"
+            >...</span
+          >
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Your ID is used to track your reservations.
+        </p>
+>>>>>>> ac814616dbfde147198e99a95bd98855b5e319bf
       </aside>
 
       <!-- CENTER: Seating Chart Visualization -->
