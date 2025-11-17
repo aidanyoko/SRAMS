@@ -157,16 +157,14 @@
           <option value="" disabled selected>Loading Rooms...</option>
         </select>
 
-        <h3 class="text-xl font-semibold mb-2">Current User:</h3>
-        <p class="text-sm break-all">
-          ID:
-          <span id="user-id-display" class="font-mono text-indigo-500"
-            >...</span
-          >
-        </p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          Your ID is used to track your reservations.
-        </p>
+        <h3 class="text-xl font-semibold mb-2">
+          Current User: 
+          @auth
+            <span class="text-indigo-500">{{ Auth::user()->email }}</span>
+          @else
+            <span class="text-gray-500">Guest</span>
+          @endauth
+        </h3>
       </aside>
 
       <!-- CENTER: Seating Chart Visualization -->
