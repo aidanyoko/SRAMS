@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\RoomController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -12,6 +13,8 @@ Route::get('/', function () {
 Route::get('/index', function () {
     return view('index');
 })->name('index');
+
+Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
 
 // Login routes
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -27,4 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
         return view('dashboard'); // Create a separate dashboard if needed
     })->name('dashboard');
+
+    Route::post('/rooms/{room}/reserve', [RoomController::class, 'reserve'])->name('rooms.reserve');
+    Route::post('/rooms/{room}/release', [RoomController::class, 'release'])->name('rooms.release');
 });

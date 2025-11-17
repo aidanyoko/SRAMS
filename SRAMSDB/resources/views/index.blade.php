@@ -79,8 +79,8 @@
           Confirm Reservation
         </h3>
         <p id="modal-message" class="mb-6">
-          Do you want to reserve Seat <span id="modal-seat-id"></span> for 30
-          minutes?
+          Reserve Seat <span id="modal-seat-id"></span>? Your email will be
+          displayed on the seating chart for everyone to see.
         </p>
         <div class="flex justify-end space-x-3">
           <button
@@ -144,7 +144,7 @@
       >
         <h2 class="text-2xl font-semibold mb-4">Select a Room</h2>
         <div id="loading-indicator" class="text-indigo-500 text-sm mb-4">
-          <i class="fas fa-spinner fa-spin mr-2"></i> Initializing...
+          Syncing seat data...
         </div>
 
         <label for="room-dropdown" class="block text-sm font-medium mb-2"
@@ -154,19 +154,30 @@
           id="room-dropdown"
           class="w-full p-3 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-6"
         >
-          <option value="" disabled selected>Loading Rooms...</option>
+          <option value="" disabled selected>Select a room...</option>
         </select>
 
-        <h3 class="text-xl font-semibold mb-2">Current User</h3>
-        <p class="text-sm break-all">
-          ID:
-          <span id="user-id-display" class="font-mono text-indigo-500"
-            >...</span
-          >
-        </p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          Your ID is used to track your reservations.
-        </p>
+        <h3 class="text-xl font-semibold mb-2">Current Viewer</h3>
+        @auth
+          <p class="text-sm">
+            Name:
+            <span class="font-semibold">{{ Auth::user()->name ?? 'SRAMS Member' }}</span>
+          </p>
+          <p class="text-sm break-all mt-1">
+            Email:
+            <span class="font-mono text-indigo-500">{{ Auth::user()->email }}</span>
+          </p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Reserved seats will display this email.
+          </p>
+        @else
+          <p class="text-sm text-gray-600 dark:text-gray-300">Browsing as Guest</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            <a href="{{ route('login') }}" class="text-indigo-600 dark:text-indigo-400 font-semibold">Log
+              in</a>
+            to reserve a seat and show your email on the board.
+          </p>
+        @endauth
       </aside>
 
       <!-- CENTER: Seating Chart Visualization -->
@@ -202,17 +213,17 @@
           <li
             class="status-key status-red p-3 rounded-lg text-white font-medium shadow-md"
           >
-            Occupied (AI Detected)
+            Taken / In Use (Red)
           </li>
           <li
             class="status-key status-green p-3 rounded-lg text-white font-medium shadow-md"
           >
-            Available (Click to Reserve)
+            Available (Green)
           </li>
           <li
             class="status-key status-yellow p-3 rounded-lg text-gray-800 font-medium shadow-md"
           >
-            Reserved (User Hold)
+            Reserved • Shows Email
           </li>
         </ul>
         <div
