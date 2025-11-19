@@ -146,6 +146,25 @@
         <div id="loading-indicator" class="text-indigo-500 text-sm mb-4">
           <i class="fas fa-spinner fa-spin mr-2"></i> Initializing...
         </div>
+        
+        <!-- AI Detection Status -->
+        <div id="ai-status" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg border-l-4 border-blue-500 hidden">
+          <p class="text-xs font-semibold text-blue-700 dark:text-blue-300">
+            🤖 AI Detection: <span id="ai-status-text">Connecting...</span>
+          </p>
+          <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+            Rooms loaded from Python API
+          </p>
+        </div>
+        
+        <!-- Python API Link -->
+        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs">
+          <p class="font-semibold mb-1">Manage Rooms:</p>
+          <a href="http://127.0.0.1:8000/classroom" target="_blank" 
+             class="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+            <span>→</span> Add/Edit rooms in Python system
+          </a>
+        </div>
 
         <label for="room-dropdown" class="block text-sm font-medium mb-2"
           >Study Room:</label
@@ -158,7 +177,10 @@
         </select>
 
         <h3 class="text-xl font-semibold mb-2">
-          Current User: 
+          Current User:
+          <p class="text-sm text-gray-500">User ID: 
+            <span id="user-id-display"></span>
+          </p> 
           @auth
             <span class="text-indigo-500">{{ Auth::user()->email }}</span>
           @else
@@ -269,16 +291,32 @@
       let selectedSeatId = null;
       let isAuthReady = false;
 
+      // Configuration for Python AI Detection API
+      const PYTHON_API_URL = "http://127.0.0.1:8000"; // Your Flask server
+      const POLL_INTERVAL = 3000; // Poll every 3 seconds for AI counts
+
+      let pollingInterval = null;
+
       // --- Core Functions ---
 
       async function initFirebase() {
         try {
+          // Check if Firebase is configured
           if (!firebaseConfig) {
-            console.error(
-              "Firebase config not found. Cannot initialize Firebase."
-            );
+            console.warn("Firebase not configured. Running in local mode.");
+            document.getElementById("loading-indicator").textContent = "Loading Rooms (Local Mode)...";
+            
+            // Use anonymous user ID
+            userId = "local-user-" + Math.random().toString(36).substr(2, 9);
+            document.getElementById("user-id-display").textContent = userId;
+            isAuthReady = true;
+            
+            // Load rooms without Firebase
+            await loadRoomsLocally();
+            startAICountPolling();
             return;
           }
+
           app = initializeApp(firebaseConfig);
           db = getFirestore(app);
           auth = getAuth(app);
@@ -301,11 +339,240 @@
             document.getElementById("loading-indicator").textContent =
               "Loading Rooms...";
             fetchRoomList();
+            
+            // Start polling Python API for AI detection counts
+            startAICountPolling();
           });
         } catch (error) {
           console.error("Firebase initialization failed:", error);
           document.getElementById("loading-indicator").textContent =
-            "Error initializing Firebase.";
+            "Error initializing. Running in local mode...";
+          
+          // Fallback to local mode
+          userId = "local-user-" + Math.random().toString(36).substr(2, 9);
+          document.getElementById("user-id-display").textContent = userId;
+          isAuthReady = true;
+          await loadRoomsLocally();
+          startAICountPolling();
+        }
+      }
+
+      /**
+       * Load rooms in local mode (no Firebase)
+       * Fetches rooms from Python API with full details
+       */
+      let localRooms = {};
+      let localCurrentRoom = null;
+
+      async function loadRoomsLocally() {
+        const dropdown = document.getElementById("room-dropdown");
+        dropdown.innerHTML = '<option value="" disabled selected>Loading rooms from AI system...</option>';
+
+        try {
+          // Fetch rooms from Python API
+          const response = await fetch(`${PYTHON_API_URL}/counts`);
+          
+          if (!response.ok) {
+            throw new Error("Python API not responding");
+          }
+          
+          const counts = await response.json();
+          console.log("Fetched rooms from Python API:", counts);
+
+          // Convert Python room data to our format
+          const roomKeys = Object.keys(counts);
+          
+          if (roomKeys.length === 0) {
+            dropdown.innerHTML = '<option value="" disabled selected>No rooms found. Create rooms in Python first.</option>';
+            document.getElementById("loading-indicator").innerHTML = 
+              '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Create rooms in Python API →</a>';
+            return;
+          }
+
+          dropdown.innerHTML = '<option value="" disabled selected>Choose a Room...</option>';
+
+          roomKeys.forEach(roomId => {
+            const currentOccupancy = counts[roomId];
+            
+            // Create room object with data from Python
+            const room = {
+              id: roomId,
+              name: getRoomName(roomId),
+              description: getRoomDescription(roomId),
+              total_seats: 12, // Can be customized per room
+              detected_occupancy: currentOccupancy,
+              capacity: 12,
+              has_projector: getRoomFeature(roomId, 'projector'),
+              has_whiteboard: getRoomFeature(roomId, 'whiteboard'),
+              has_computers: getRoomFeature(roomId, 'computer'),
+              reservations: {},
+              is_available: currentOccupancy === 0, // Room available if no one detected
+            };
+
+            localRooms[roomId] = room;
+            
+            const option = document.createElement("option");
+            option.value = roomId;
+            
+            // Show availability status in dropdown
+            const status = currentOccupancy === 0 ? '🟢 Available' : `🔴 ${currentOccupancy} people inside`;
+            option.textContent = `${room.name} - ${status}`;
+            dropdown.appendChild(option);
+          });
+
+          // Auto-select first room
+          if (roomKeys.length > 0) {
+            dropdown.value = roomKeys[0];
+            handleRoomSelectionLocal(roomKeys[0]);
+          }
+
+          document.getElementById("loading-indicator").style.display = "none";
+          
+        } catch (error) {
+          console.error("Failed to load rooms from Python API:", error);
+          
+          // Show error with link to create rooms
+          dropdown.innerHTML = '<option value="" disabled selected>Error: Python API not running</option>';
+          document.getElementById("loading-indicator").innerHTML = 
+            '<div class="text-red-600">' +
+            'Python API not found. <br>' +
+            '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Start Python server and create rooms →</a>' +
+            '</div>';
+        }
+      }
+
+      // Helper functions for room customization
+      function getRoomName(roomId) {
+        const names = {
+          'R101': 'Room 101 - Quiet Study',
+          'R201': 'Room 201 - Collaboration Hub',
+          'R301': 'Room 301 - Tech Lab',
+          'R102': 'Room 102 - Small Meeting',
+          'R404': 'Room 404 - Presentation Room',
+          'R202': 'Room 202 - Discussion Pod',
+        };
+        return names[roomId] || `Room ${roomId}`;
+      }
+
+      function getRoomDescription(roomId) {
+        const descriptions = {
+          'R101': 'Perfect for individual study and focused work',
+          'R201': 'Ideal for group projects and team collaboration',
+          'R301': 'Equipped with computers and tech equipment',
+          'R102': 'Cozy space for 1-3 people',
+          'R404': 'Large room with presentation equipment',
+          'R202': 'Circular seating for engaging discussions',
+        };
+        return descriptions[roomId] || `Study room ${roomId} with AI occupancy detection`;
+      }
+
+      function getRoomFeature(roomId, feature) {
+        const features = {
+          'R101': { projector: false, whiteboard: true, computer: false },
+          'R201': { projector: true, whiteboard: true, computer: false },
+          'R301': { projector: true, whiteboard: true, computer: true },
+          'R102': { projector: false, whiteboard: true, computer: false },
+          'R404': { projector: true, whiteboard: true, computer: true },
+          'R202': { projector: false, whiteboard: true, computer: false },
+        };
+        return features[roomId]?.[feature] || false;
+      }
+
+      function handleRoomSelectionLocal(roomId) {
+        localCurrentRoom = roomId;
+        const room = localRooms[roomId];
+        if (room) {
+          renderSeatMap(room);
+          checkUserReservationLocal(room);
+        }
+      }
+
+      /**
+       * Poll the Python API for real-time AI detection counts
+       */
+      function startAICountPolling() {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+        }
+
+        // Poll immediately, then every POLL_INTERVAL
+        updateAIDetectionCounts();
+        
+        pollingInterval = setInterval(() => {
+          updateAIDetectionCounts();
+        }, POLL_INTERVAL);
+      }
+
+      /**
+       * Fetch AI detection counts from Python Flask API
+       */
+      async function updateAIDetectionCounts() {
+        try {
+          const response = await fetch(`${PYTHON_API_URL}/counts`);
+          if (!response.ok) {
+            console.warn("Python API not responding");
+            updateAIStatus("Disconnected", false);
+            return;
+          }
+          
+          const counts = await response.json();
+          console.log("AI Detection Counts:", counts);
+
+          // Update status indicator
+          updateAIStatus("Active", true);
+
+          // Update room counts
+          if (firebaseConfig && db) {
+            // Update Firebase with AI-detected occupancy
+            for (const [roomId, count] of Object.entries(counts)) {
+              const roomDocRef = doc(getRoomCollectionRef(), roomId);
+              
+              // Only update detected_occupancy, keep reservations intact
+              await setDoc(roomDocRef, {
+                detected_occupancy: count
+              }, { merge: true });
+            }
+          } else {
+            // Update local rooms
+            for (const [roomId, count] of Object.entries(counts)) {
+              if (localRooms[roomId]) {
+                localRooms[roomId].detected_occupancy = count;
+                
+                // Re-render if this is the current room
+                if (roomId === localCurrentRoom) {
+                  renderSeatMap(localRooms[roomId]);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch AI counts:", error);
+          updateAIStatus("Error", false);
+          // Don't stop polling on error - Python server might be starting up
+        }
+      }
+
+      function checkUserReservationLocal(room) {
+        const timerEl = document.getElementById("reservation-timer");
+        timerEl.innerHTML = "N/A (Local Mode)";
+      }
+
+      /**
+       * Update AI detection status indicator
+       */
+      function updateAIStatus(status, isActive) {
+        const statusDiv = document.getElementById("ai-status");
+        const statusText = document.getElementById("ai-status-text");
+        
+        statusDiv.classList.remove("hidden");
+        statusText.textContent = status;
+        
+        if (isActive) {
+          statusDiv.className = "mb-4 p-3 bg-green-50 dark:bg-green-900 rounded-lg border-l-4 border-green-500";
+          statusText.className = "text-xs font-semibold text-green-700 dark:text-green-300";
+        } else {
+          statusDiv.className = "mb-4 p-3 bg-red-50 dark:bg-red-900 rounded-lg border-l-4 border-red-500";
+          statusText.className = "text-xs font-semibold text-red-700 dark:text-red-300";
         }
       }
 
@@ -324,24 +591,75 @@
 
       const initialMockRooms = [
         {
-          id: "R404",
-          name: "Room 404 (Main Lab)",
-          total_seats: 12,
-          detected_occupancy: 0,
+          id: "R101",
+          name: "Room 101 (Quiet Study)",
+          description: "Perfect for individual study",
+          total_seats: 4,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 4,
+          has_projector: false,
+          has_whiteboard: true,
+          has_computers: false,
           reservations: {},
         },
         {
           id: "R201",
-          name: "Room 201 (Quiet Study)",
+          name: "Room 201 (Collaboration Hub)",
+          description: "Ideal for group projects",
           total_seats: 8,
-          detected_occupancy: 3,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 8,
+          has_projector: true,
+          has_whiteboard: true,
+          has_computers: false,
           reservations: {},
         },
         {
-          id: "R310",
-          name: "Room 310 (Group Pods)",
-          total_seats: 10,
-          detected_occupancy: 8,
+          id: "R301",
+          name: "Room 301 (Tech Lab)",
+          description: "Equipped with computers",
+          total_seats: 6,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 6,
+          has_projector: true,
+          has_whiteboard: true,
+          has_computers: true,
+          reservations: {},
+        },
+        {
+          id: "R102",
+          name: "Room 102 (Small Meeting)",
+          description: "Cozy space for 1-3 people",
+          total_seats: 3,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 3,
+          has_projector: false,
+          has_whiteboard: true,
+          has_computers: false,
+          reservations: {},
+        },
+        {
+          id: "R404",
+          name: "Room 404 (Presentation Room)",
+          description: "Large room with presentation equipment",
+          total_seats: 12,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 12,
+          has_projector: true,
+          has_whiteboard: true,
+          has_computers: true,
+          reservations: {},
+        },
+        {
+          id: "R202",
+          name: "Room 202 (Discussion Pod)",
+          description: "Circular seating for discussions",
+          total_seats: 6,
+          detected_occupancy: 0, // Will be updated by Python AI
+          capacity: 6,
+          has_projector: false,
+          has_whiteboard: true,
+          has_computers: false,
           reservations: {},
         },
       ];
@@ -386,15 +704,62 @@
       document
         .getElementById("room-dropdown")
         .addEventListener("change", (event) => {
-          handleRoomSelection(event.target.value);
+          const roomId = event.target.value;
+          if (firebaseConfig && db) {
+            handleRoomSelection(roomId);
+          } else {
+            handleRoomSelectionLocal(roomId);
+          }
         });
 
       document
         .getElementById("confirm-reserve-btn")
         .addEventListener("click", () => {
           closeModal();
-          reserveSeat(selectedSeatId);
+          if (firebaseConfig && db) {
+            reserveSeat(selectedSeatId);
+          } else {
+            reserveSeatLocal(selectedSeatId);
+          }
         });
+
+      async function reserveSeatLocal(seatNumber) {
+        const roomId = localCurrentRoom;
+        const seatId = `seat-${seatNumber}`;
+        const room = localRooms[roomId];
+        
+        if (!room) return;
+
+        const expirationTime = Date.now() + 30 * 60 * 1000;
+
+        // Initialize reservations if not exists
+        if (!room.reservations) {
+          room.reservations = {};
+        }
+
+        // Check if already reserved
+        const existing = room.reservations[seatId];
+        if (existing && existing.expires > Date.now()) {
+          showStatusMessage("Seat is already reserved!", "error");
+          return;
+        }
+
+        // Create reservation
+        room.reservations[seatId] = {
+          userId: userId,
+          reservedAt: Date.now(),
+          expires: expirationTime
+        };
+
+        showStatusMessage(
+          `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
+          "success"
+        );
+
+        // Re-render
+        renderSeatMap(room);
+        checkUserReservationLocal(room);
+      }
 
       function handleRoomSelection(roomId) {
         if (unsubscribeRoomListener) {
@@ -434,65 +799,124 @@
         mapContainer.innerHTML = "";
         document.getElementById("current-room-name").textContent = room.name;
 
-        const occupiedCount = room.detected_occupancy || 0;
-        const totalSeats = room.total_seats || 0;
-        const reservations = room.reservations || {};
-        const currentTime = Date.now();
+        // Show room description and features
+        const roomInfoDiv = document.createElement("div");
+        roomInfoDiv.className = "col-span-full mb-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900 dark:to-blue-900 rounded-lg border border-indigo-200 dark:border-indigo-700";
+        
+        const occupancyStatus = room.detected_occupancy === 0 
+          ? '<span class="text-green-600 dark:text-green-400 font-bold">🟢 Available - No one inside</span>'
+          : `<span class="text-red-600 dark:text-red-400 font-bold">🔴 Occupied - ${room.detected_occupancy} people detected by AI</span>`;
+        
+        roomInfoDiv.innerHTML = `
+          <div class="mb-4">
+            <p class="text-lg font-semibold mb-2">${occupancyStatus}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">${room.description || 'Study room available for booking'}</p>
+          </div>
+          
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">
+              👥 Capacity: ${room.capacity || room.total_seats} people
+            </span>
+            ${room.has_projector ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📽️ Projector</span>' : ''}
+            ${room.has_whiteboard ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📝 Whiteboard</span>' : ''}
+            ${room.has_computers ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">💻 Computers</span>' : ''}
+          </div>
 
-        const actualOccupied = Math.min(occupiedCount, totalSeats);
-
-        for (let i = 1; i <= totalSeats; i++) {
-          const seatBox = document.createElement("div");
-          const seatId = `seat-${i}`;
-          seatBox.classList.add(
-            "seat-box",
-            "rounded-lg",
-            "shadow-md",
-            "p-2",
-            "font-bold",
-            "text-sm"
-          );
-          seatBox.dataset.seatId = i;
-          seatBox.innerHTML = `S${i}<span class="text-xs font-normal opacity-75">${room.id}</span>`;
-
-          let status = "available";
-
-          const reservation = reservations[seatId];
-          if (reservation) {
-            if (reservation.expires < currentTime) {
-              status = "expired";
-              clearExpiredReservation(room.id, seatId);
-            } else {
-              status = "reserved";
-              seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Reserved</span>`;
+          <div class="pt-4 border-t border-indigo-200 dark:border-indigo-700">
+            ${room.detected_occupancy === 0 
+              ? `<button onclick="showReserveRoomModal('${room.id}')" class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-bold text-lg shadow-lg hover:shadow-xl">
+                  ✓ Reserve This Room
+                </button>`
+              : `<button disabled class="w-full px-6 py-3 bg-gray-400 text-white rounded-lg font-bold text-lg cursor-not-allowed opacity-60">
+                  ✗ Room Currently Occupied
+                </button>
+                <p class="text-sm text-red-600 dark:text-red-400 mt-2 text-center">Wait for the room to be empty before reserving</p>`
             }
-          }
+          </div>
+        `;
+        mapContainer.appendChild(roomInfoDiv);
 
-          if (status !== "reserved" && i <= actualOccupied) {
-            status = "occupied";
-            seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Occupied</span>`;
-          }
+        // Show visual occupancy indicator
+        const occupancyDiv = document.createElement("div");
+        occupancyDiv.className = "col-span-full p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700";
+        
+        const maxPeople = room.capacity || 12;
+        const currentPeople = room.detected_occupancy || 0;
+        const percentFull = Math.min((currentPeople / maxPeople) * 100, 100);
+        
+        occupancyDiv.innerHTML = `
+          <h3 class="text-lg font-bold mb-3">Real-Time Occupancy (AI Detection)</h3>
+          <div class="mb-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span>People Inside: <strong>${currentPeople}</strong></span>
+              <span>Max Capacity: <strong>${maxPeople}</strong></span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6">
+              <div class="h-6 rounded-full transition-all duration-500 flex items-center justify-center text-white text-xs font-bold"
+                   style="width: ${percentFull}%; background-color: ${percentFull === 0 ? '#10b981' : percentFull < 50 ? '#f59e0b' : '#ef4444'};">
+                ${percentFull > 0 ? `${Math.round(percentFull)}%` : ''}
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            📹 Live camera feed monitoring via YOLO AI detection
+          </p>
+        `;
+        mapContainer.appendChild(occupancyDiv);
 
-          if (status === "occupied") {
-            seatBox.classList.add("status-red", "text-white");
-          } else if (status === "reserved") {
-            seatBox.classList.add("status-yellow", "text-gray-900");
-            if (reservation.userId === userId) {
-              seatBox.classList.add(
-                "border-4",
-                "border-indigo-600",
-                "dark:border-indigo-400"
-              );
-              seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Your Hold</span>`;
-            }
-          } else {
-            seatBox.classList.add("status-green", "text-white");
-            seatBox.addEventListener("click", () => showConfirmationModal(i));
-          }
-
-          mapContainer.appendChild(seatBox);
-        }
+        // Show seat visualization (simplified)
+        const seatsDiv = document.createElement("div");
+        seatsDiv.className = "col-span-full";
+        seatsDiv.innerHTML = `
+          <div class="grid grid-cols-6 gap-2 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            ${Array.from({length: room.total_seats || 12}, (_, i) => {
+              const isOccupied = i < currentPeople;
+              return `
+                <div class="h-12 rounded flex items-center justify-center text-xs font-bold ${
+                  isOccupied 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-green-500 text-white'
+                }">
+                  ${isOccupied ? '👤' : '✓'}
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <p class="text-xs text-center mt-2 text-gray-500">Visual representation of room occupancy</p>
+        `;
+        mapContainer.appendChild(seatsDiv);
       }
+
+      // New function for room reservation modal
+      window.showReserveRoomModal = function(roomId) {
+        const room = localRooms[roomId] || (firebaseConfig && currentRoomId ? {id: currentRoomId} : null);
+        if (!room) return;
+
+        selectedSeatId = null; // Not using seat-based reservation
+        
+        document.getElementById("modal-title").textContent = "Reserve Room";
+        document.getElementById("modal-message").innerHTML = `
+          Do you want to reserve <strong>${room.name || 'Room ' + roomId}</strong>?<br>
+          <span class="text-sm text-gray-600 dark:text-gray-400 mt-2 block">
+            Room will be reserved for 30 minutes and marked as "In Use"
+          </span>
+        `;
+        document.getElementById("modal-seat-id").textContent = "";
+        
+        document.getElementById("confirmation-modal").classList.remove("hidden");
+        document.getElementById("confirmation-modal").classList.add("flex");
+        
+        // Update confirm button to reserve room
+        document.getElementById("confirm-reserve-btn").onclick = function() {
+          closeModal();
+          if (firebaseConfig && db) {
+            // Firebase reservation logic (if using Firebase)
+            console.log("Reserve room via Firebase:", roomId);
+          } else {
+            reserveRoomLocal(roomId);
+          }
+        };
+      };
 
       // --- Reservation & Cleanup ---
 
