@@ -6,7 +6,7 @@ use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\RoomController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('index');
 })->name('home');
 
 // Make index page PUBLIC (accessible without login)

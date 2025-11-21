@@ -203,7 +203,7 @@
         <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs">
           <p class="font-semibold mb-1">Manage Rooms:</p>
           <a
-            href="http://127.0.0.1:8000/classroom"
+            href="http://127.0.0.1:9000/classroom"
             target="_blank"
             class="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
           >
@@ -351,7 +351,7 @@
       const isGuestUser = "{{ Auth::check() ? 'false' : 'true' }}" === "true";
 
       // Python AI Detection API
-      const PYTHON_API_URL = "http://127.0.0.1:8000";
+      const PYTHON_API_URL = "http://127.0.0.1:9000";
       const POLL_INTERVAL = 3000;
 
       let pollingInterval = null;
@@ -449,7 +449,7 @@
               '<option value="" disabled selected>No rooms found. Create rooms in Python first.</option>';
 
             document.getElementById("loading-indicator").innerHTML =
-              '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Create rooms in Python API →</a>';
+              '<a href="http://127.0.0.1:9000/classroom" target="_blank" class="text-indigo-600 hover:underline">Create rooms in Python API →</a>';
 
             return;
           }
@@ -503,7 +503,7 @@
           document.getElementById("loading-indicator").innerHTML =
             '<div class="text-red-600">' +
             "Python API not found. <br>" +
-            '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Start Python server and create rooms →</a>' +
+            '<a href="http://127.0.0.1:9000/classroom" target="_blank" class="text-indigo-600 hover:underline">Start Python server and create rooms →</a>' +
             "</div>";
         }
       }
