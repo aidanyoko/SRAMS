@@ -4,11 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Room Availability Monitor</title>
-    <!-- Load Tailwind CSS -->
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
       /* Custom styles for polished look */
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+
       body {
         font-family: "Inter", sans-serif;
       }
@@ -17,6 +20,7 @@
       .seat-grid {
         grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
       }
+
       .seat-box {
         height: 70px;
         transition: all 0.2s ease-in-out;
@@ -31,10 +35,12 @@
       .status-red {
         background-color: #ef4444;
       } /* Red (Occupied) */
+
       .status-green {
         background-color: #10b981; /* Green (Available) */
         cursor: pointer;
       }
+
       .status-yellow {
         background-color: #f59e0b;
       } /* Yellow (Reserved) */
@@ -55,6 +61,7 @@
         .main-container {
           flex-direction: column;
         }
+
         .sidebar-left,
         .sidebar-right,
         .seating-area {
@@ -64,6 +71,7 @@
       }
     </style>
   </head>
+
   <body
     class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300"
   >
@@ -78,10 +86,15 @@
         <h3 class="text-xl font-bold mb-4" id="modal-title">
           Confirm Reservation
         </h3>
+
         <p id="modal-message" class="mb-6">
-          Reserve Seat <span id="modal-seat-id"></span>? Your email will be
-          displayed on the seating chart for everyone to see.
+          Do you want to reserve this seat?
         </p>
+
+        <!-- These hidden spans are needed by the JavaScript -->
+        <span id="modal-seat-id" class="hidden"></span>
+        <span id="modal-room-id" class="hidden"></span>
+
         <div class="flex justify-end space-x-3">
           <button
             onclick="closeModal()"
@@ -89,6 +102,7 @@
           >
             Cancel
           </button>
+
           <button
             id="confirm-reserve-btn"
             class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold"
@@ -99,13 +113,16 @@
       </div>
     </div>
 
+    <!-- Header -->
     <header class="bg-indigo-700 dark:bg-indigo-900 shadow-lg py-4">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center"
+      >
         <h1 class="text-3xl font-extrabold text-white">
           Study Room Availability Monitor 📚
         </h1>
-        
-        <!-- Single Auth Button -->
+
+        <!-- Auth Button -->
         @auth
           <!-- Logged in: Show Logout -->
           <form method="POST" action="{{ route('logout') }}" class="inline">
@@ -114,8 +131,17 @@
               type="submit"
               class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
+                  clip-rule="evenodd"
+                />
               </svg>
               Logout
             </button>
@@ -126,8 +152,17 @@
             href="{{ route('login') }}"
             class="px-4 py-2 bg-white hover:bg-gray-100 text-indigo-700 rounded-lg transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z"
+                clip-rule="evenodd"
+              />
             </svg>
             Login
           </a>
@@ -135,6 +170,7 @@
       </div>
     </header>
 
+    <!-- Main Layout -->
     <div
       class="main-container max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex flex-wrap lg:flex-nowrap gap-6"
     >
@@ -143,54 +179,63 @@
         class="sidebar-left w-full lg:w-1/4 bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg h-fit"
       >
         <h2 class="text-2xl font-semibold mb-4">Select a Room</h2>
+
         <div id="loading-indicator" class="text-indigo-500 text-sm mb-4">
-          Syncing seat data...
+          <i class="fas fa-spinner fa-spin mr-2"></i>
+          Initializing...
         </div>
 
-        <label for="room-dropdown" class="block text-sm font-medium mb-2"
-          >Study Room:</label
+        <!-- AI Detection Status -->
+        <div
+          id="ai-status"
+          class="mb-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg border-l-4 border-blue-500 hidden"
         >
+          <p class="text-xs font-semibold text-blue-700 dark:text-blue-300">
+            🤖 AI Detection:
+            <span id="ai-status-text">Connecting...</span>
+          </p>
+          <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+            Rooms loaded from Python API
+          </p>
+        </div>
+
+        <!-- Python API Link -->
+        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs">
+          <p class="font-semibold mb-1">Manage Rooms:</p>
+          <a
+            href="http://127.0.0.1:8000/classroom"
+            target="_blank"
+            class="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+          >
+            <span>→</span>
+            Add/Edit rooms in Python system
+          </a>
+        </div>
+
+        <label for="room-dropdown" class="block text-sm font-medium mb-2">
+          Study Room:
+        </label>
+
         <select
           id="room-dropdown"
           class="w-full p-3 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-6"
         >
-          <option value="" disabled selected>Select a room...</option>
+          <option value="" disabled selected>Loading Rooms...</option>
         </select>
 
-<<<<<<< HEAD
-        <h3 class="text-xl font-semibold mb-2">Current Viewer</h3>
-        @auth
-          <p class="text-sm">
-            Name:
-            <span class="font-semibold">{{ Auth::user()->name ?? 'SRAMS Member' }}</span>
-          </p>
-          <p class="text-sm break-all mt-1">
-            Email:
-            <span class="font-mono text-indigo-500">{{ Auth::user()->email }}</span>
-          </p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            Reserved seats will display this email.
-          </p>
-        @else
-          <p class="text-sm text-gray-600 dark:text-gray-300">Browsing as Guest</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            <a href="{{ route('login') }}" class="text-indigo-600 dark:text-indigo-400 font-semibold">Log
-              in</a>
-            to reserve a seat and show your email on the board.
-          </p>
-        @endauth
-=======
-        <h3 class="text-xl font-semibold mb-2">Current User:</h3>
-        <p class="text-sm break-all">
-          ID:
-          <span id="user-id-display" class="font-mono text-indigo-500"
-            >...</span
-          >
+        <h3 class="text-xl font-semibold mb-2">
+          Current User:
+          @auth
+            <span class="text-indigo-500">{{ Auth::user()->email }}</span>
+          @else
+            <span class="text-gray-500">Guest</span>
+          @endauth
+        </h3>
+
+        <p class="text-sm text-gray-500">
+          User ID:
+          <span id="user-id-display"></span>
         </p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          Your ID is used to track your reservations.
-        </p>
->>>>>>> ac814616dbfde147198e99a95bd98855b5e319bf
       </aside>
 
       <!-- CENTER: Seating Chart Visualization -->
@@ -202,9 +247,11 @@
           <span
             id="current-room-name"
             class="text-indigo-600 dark:text-indigo-400"
-            >Please Select a Room</span
           >
+            Please Select a Room
+          </span>
         </h2>
+
         <div
           id="seat-map-visualization"
           class="seat-grid grid gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[300px]"
@@ -222,23 +269,25 @@
         class="sidebar-right w-full lg:w-1/4 bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg h-fit"
       >
         <h2 class="text-2xl font-semibold mb-4">Status Key</h2>
+
         <ul class="space-y-3">
           <li
             class="status-key status-red p-3 rounded-lg text-white font-medium shadow-md"
           >
-            Taken / In Use (Red)
+            Occupied (AI Detected)
           </li>
           <li
             class="status-key status-green p-3 rounded-lg text-white font-medium shadow-md"
           >
-            Available (Green)
+            Available (Click to Reserve)
           </li>
           <li
             class="status-key status-yellow p-3 rounded-lg text-gray-800 font-medium shadow-md"
           >
-            Reserved • Shows Email
+            Reserved (User Hold)
           </li>
         </ul>
+
         <div
           class="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900 rounded-lg border-l-4 border-indigo-500"
         >
@@ -253,7 +302,7 @@
       </aside>
     </div>
 
-    <!-- Firebase Imports -->
+    <!-- Firebase + App Script -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
       import {
@@ -274,42 +323,68 @@
         serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-      // Ensure to initialize Firebase only once
+      // ---------------------------------------------------------------------
+      // Firebase / Global State
+      // ---------------------------------------------------------------------
+
       const firebaseConfig =
         typeof __firebase_config !== "undefined"
           ? JSON.parse(__firebase_config)
           : null;
+
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-study-app";
+
       const initialAuthToken =
         typeof __initial_auth_token !== "undefined"
           ? __initial_auth_token
           : null;
 
-      let app,
-        db,
-        auth,
-        userId = null;
+      let app;
+      let db;
+      let auth;
+      let userId = null;
       let unsubscribeRoomListener = null;
       let currentRoomId = null;
       let selectedSeatId = null;
       let isAuthReady = false;
+      const isGuestUser = "{{ Auth::check() ? 'false' : 'true' }}" === "true";
 
-      // --- Core Functions ---
+      // Python AI Detection API
+      const PYTHON_API_URL = "http://127.0.0.1:8000";
+      const POLL_INTERVAL = 3000;
+
+      let pollingInterval = null;
+
+      // ---------------------------------------------------------------------
+      // Firebase Init
+      // ---------------------------------------------------------------------
 
       async function initFirebase() {
         try {
+          // If no firebase config → local mode
           if (!firebaseConfig) {
-            console.error(
-              "Firebase config not found. Cannot initialize Firebase."
-            );
+            console.warn("Firebase not configured. Running in local mode.");
+            document.getElementById("loading-indicator").textContent =
+              "Loading Rooms (Local Mode)...";
+
+            // Local anonymous user
+            userId = "local-user-" + Math.random().toString(36).substr(2, 9);
+            document.getElementById("user-id-display").textContent = userId;
+            isAuthReady = true;
+
+            await loadRoomsLocally();
+            startAICountPolling();
             return;
           }
+
+          // Firebase app
           app = initializeApp(firebaseConfig);
           db = getFirestore(app);
           auth = getAuth(app);
+          // Detect if user is a guest (Laravel adds this automatically)
+          
 
-          // Authentication
           onAuthStateChanged(auth, async (user) => {
             if (user) {
               userId = user.uid;
@@ -322,64 +397,286 @@
                 userId = anonUser.user.uid;
               }
             }
+
             document.getElementById("user-id-display").textContent = userId;
             isAuthReady = true;
             document.getElementById("loading-indicator").textContent =
               "Loading Rooms...";
-            fetchRoomList();
+
+            await fetchRoomList();
+            startAICountPolling();
           });
         } catch (error) {
           console.error("Firebase initialization failed:", error);
           document.getElementById("loading-indicator").textContent =
-            "Error initializing Firebase.";
+            "Error initializing. Running in local mode...";
+
+          // Fallback to local mode
+          userId = "local-user-" + Math.random().toString(36).substr(2, 9);
+          document.getElementById("user-id-display").textContent = userId;
+          isAuthReady = true;
+
+          await loadRoomsLocally();
+          startAICountPolling();
         }
       }
 
-      function getRoomCollectionRef() {
-        return collection(
-          db,
-          "artifacts",
-          appId,
-          "public",
-          "data",
-          "study_rooms"
+      // ---------------------------------------------------------------------
+      // Local Mode / Python API
+      // ---------------------------------------------------------------------
+
+      let localRooms = {};
+      let localCurrentRoom = null;
+
+      async function loadRoomsLocally() {
+        const dropdown = document.getElementById("room-dropdown");
+        dropdown.innerHTML =
+          '<option value="" disabled selected>Loading rooms from AI system...</option>';
+
+        try {
+          const response = await fetch(`${PYTHON_API_URL}/counts`);
+          if (!response.ok) {
+            throw new Error("Python API not responding");
+          }
+
+          const counts = await response.json();
+          console.log("Fetched rooms from Python API:", counts);
+
+          const roomKeys = Object.keys(counts);
+
+          if (roomKeys.length === 0) {
+            dropdown.innerHTML =
+              '<option value="" disabled selected>No rooms found. Create rooms in Python first.</option>';
+
+            document.getElementById("loading-indicator").innerHTML =
+              '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Create rooms in Python API →</a>';
+
+            return;
+          }
+
+          dropdown.innerHTML =
+            '<option value="" disabled selected>Choose a Room...</option>';
+
+          roomKeys.forEach((roomId) => {
+            const currentOccupancy = counts[roomId];
+
+            const room = {
+              id: roomId,
+              name: getRoomName(roomId),
+              description: getRoomDescription(roomId),
+              total_seats: 12,
+              detected_occupancy: currentOccupancy,
+              capacity: 12,
+              has_projector: getRoomFeature(roomId, "projector"),
+              has_whiteboard: getRoomFeature(roomId, "whiteboard"),
+              has_computers: getRoomFeature(roomId, "computer"),
+              reservations: {},
+              is_available: currentOccupancy === 0,
+            };
+
+            localRooms[roomId] = room;
+
+            const option = document.createElement("option");
+            option.value = roomId;
+
+            const status =
+              currentOccupancy === 0
+                ? "🟢 Available"
+                : `🔴 ${currentOccupancy} people inside`;
+
+            option.textContent = `${room.name} - ${status}`;
+            dropdown.appendChild(option);
+          });
+
+          if (roomKeys.length > 0) {
+            dropdown.value = roomKeys[0];
+            handleRoomSelectionLocal(roomKeys[0]);
+          }
+
+          document.getElementById("loading-indicator").style.display = "none";
+        } catch (error) {
+          console.error("Failed to load rooms from Python API:", error);
+
+          dropdown.innerHTML =
+            '<option value="" disabled selected>Error: Python API not running</option>';
+
+          document.getElementById("loading-indicator").innerHTML =
+            '<div class="text-red-600">' +
+            "Python API not found. <br>" +
+            '<a href="http://127.0.0.1:8000/classroom" target="_blank" class="text-indigo-600 hover:underline">Start Python server and create rooms →</a>' +
+            "</div>";
+        }
+      }
+
+      function getRoomName(roomId) {
+        const names = {
+          R101: "Room 101 - Quiet Study",
+          R201: "Room 201 - Collaboration Hub",
+          R301: "Room 301 - Tech Lab",
+          R102: "Room 102 - Small Meeting",
+          R404: "Room 404 - Presentation Room",
+          R202: "Room 202 - Discussion Pod",
+        };
+        return names[roomId] || `Room ${roomId}`;
+      }
+
+      function getRoomDescription(roomId) {
+        const descriptions = {
+          R101: "Perfect for individual study and focused work",
+          R201: "Ideal for group projects and team collaboration",
+          R301: "Equipped with computers and tech equipment",
+          R102: "Cozy space for 1-3 people",
+          R404: "Large room with presentation equipment",
+          R202: "Circular seating for engaging discussions",
+        };
+        return (
+          descriptions[roomId] ||
+          `Study room ${roomId} with AI occupancy detection`
         );
       }
 
-      // --- Data Population and Fetching ---
+      function getRoomFeature(roomId, feature) {
+        const features = {
+          R101: { projector: false, whiteboard: true, computer: false },
+          R201: { projector: true, whiteboard: true, computer: false },
+          R301: { projector: true, whiteboard: true, computer: true },
+          R102: { projector: false, whiteboard: true, computer: false },
+          R404: { projector: true, whiteboard: true, computer: true },
+          R202: { projector: false, whiteboard: true, computer: false },
+        };
+        return features[roomId]?.[feature] || false;
+      }
 
-      const initialMockRooms = [
-        {
-          id: "R404",
-          name: "Room 404 (Main Lab)",
-          total_seats: 12,
-          detected_occupancy: 0,
-          reservations: {},
-        },
-        {
-          id: "R201",
-          name: "Room 201 (Quiet Study)",
-          total_seats: 8,
-          detected_occupancy: 3,
-          reservations: {},
-        },
-        {
-          id: "R310",
-          name: "Room 310 (Group Pods)",
-          total_seats: 10,
-          detected_occupancy: 8,
-          reservations: {},
-        },
-      ];
+      function handleRoomSelectionLocal(roomId) {
+        localCurrentRoom = roomId;
+        const room = localRooms[roomId];
+        if (room) {
+          renderSeatMap(room);
+          checkUserReservationLocal(room);
+        }
+      }
+
+      function startAICountPolling() {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+        }
+
+        updateAIDetectionCounts();
+        pollingInterval = setInterval(updateAIDetectionCounts, POLL_INTERVAL);
+      }
+
+      async function updateAIDetectionCounts() {
+        try {
+          const response = await fetch(`${PYTHON_API_URL}/counts`);
+          if (!response.ok) {
+            console.warn("Python API not responding");
+            updateAIStatus("Disconnected", false);
+            return;
+          }
+
+          const counts = await response.json();
+          console.log("AI Detection Counts:", counts);
+
+          if (!firebaseConfig) {
+            localRooms = Object.keys(counts).reduce((acc, roomId) => {
+              const currentOccupancy = counts[roomId];
+              acc[roomId] = {
+                ...(localRooms[roomId] || {}),
+                id: roomId,
+                name: getRoomName(roomId),
+                description: getRoomDescription(roomId),
+                detected_occupancy: currentOccupancy,
+                capacity: localRooms[roomId]?.capacity || 12,
+                reservations: localRooms[roomId]?.reservations || {},
+              };
+              return acc;
+            }, {});
+
+            if (localCurrentRoom && localRooms[localCurrentRoom]) {
+              renderSeatMap(localRooms[localCurrentRoom]);
+              checkUserReservationLocal(localRooms[localCurrentRoom]);
+            }
+          }
+
+          updateAIStatus("Connected", true);
+        } catch (error) {
+          console.error("Error fetching AI counts:", error);
+          updateAIStatus("Disconnected", false);
+        }
+      }
+
+      function updateAIStatus(status, connected) {
+        const aiStatus = document.getElementById("ai-status");
+        const aiStatusText = document.getElementById("ai-status-text");
+
+        aiStatus.classList.remove("hidden");
+        aiStatusText.textContent = status;
+
+        if (connected) {
+          aiStatus.classList.add("bg-blue-50", "dark:bg-blue-900");
+          aiStatus.classList.remove("bg-red-50", "dark:bg-red-900");
+        } else {
+          aiStatus.classList.add("bg-red-50", "dark:bg-red-900");
+          aiStatus.classList.remove("bg-blue-50", "dark:bg-blue-900");
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Firestore Helpers (Firebase mode)
+      // ---------------------------------------------------------------------
+
+      function getRoomCollectionRef() {
+        return collection(db, `institutions/${appId}/rooms`);
+      }
 
       async function populateInitialDataIfNeeded() {
         const roomListSnapshot = await getDocs(getRoomCollectionRef());
-        if (roomListSnapshot.empty) {
-          console.log("Database is empty. Populating initial data...");
-          for (const room of initialMockRooms) {
-            await setDoc(doc(getRoomCollectionRef(), room.id), room);
-          }
-        }
+        if (!roomListSnapshot.empty) return;
+
+        const defaultRooms = [
+          {
+            id: "room-a",
+            name: "Room A - Quiet Study",
+            description: "Silent room with 12 seats",
+            total_seats: 12,
+            detected_occupancy: 0,
+            capacity: 12,
+            has_projector: false,
+            has_whiteboard: true,
+            has_computers: false,
+            reservations: {},
+          },
+          {
+            id: "room-b",
+            name: "Room B - Collaboration",
+            description: "Group work friendly room",
+            total_seats: 12,
+            detected_occupancy: 0,
+            capacity: 12,
+            has_projector: true,
+            has_whiteboard: true,
+            has_computers: false,
+            reservations: {},
+          },
+          {
+            id: "room-c",
+            name: "Room C - Tech Lab",
+            description: "Computers and projector included",
+            total_seats: 12,
+            detected_occupancy: 0,
+            capacity: 12,
+            has_projector: true,
+            has_whiteboard: true,
+            has_computers: true,
+            reservations: {},
+          },
+        ];
+
+        await Promise.all(
+          defaultRooms.map((room) =>
+            setDoc(doc(getRoomCollectionRef(), room.id), room)
+          )
+        );
       }
 
       async function fetchRoomList() {
@@ -391,9 +688,11 @@
 
         const roomListSnapshot = await getDocs(getRoomCollectionRef());
         const rooms = [];
-        roomListSnapshot.forEach((doc) => {
-          const room = { id: doc.id, ...doc.data() };
+
+        roomListSnapshot.forEach((docSnap) => {
+          const room = { id: docSnap.id, ...docSnap.data() };
           rooms.push(room);
+
           const option = document.createElement("option");
           option.value = room.id;
           option.textContent = room.name;
@@ -404,23 +703,104 @@
           dropdown.value = rooms[0].id;
           handleRoomSelection(rooms[0].id);
         }
+
         document.getElementById("loading-indicator").style.display = "none";
       }
 
-      // --- Event Handlers ---
+      // ---------------------------------------------------------------------
+      // Event Handlers
+      // ---------------------------------------------------------------------
 
       document
         .getElementById("room-dropdown")
         .addEventListener("change", (event) => {
-          handleRoomSelection(event.target.value);
+          const roomId = event.target.value;
+          if (firebaseConfig && db) {
+            handleRoomSelection(roomId);
+          } else {
+            handleRoomSelectionLocal(roomId);
+          }
         });
 
-      document
-        .getElementById("confirm-reserve-btn")
-        .addEventListener("click", () => {
-          closeModal();
-          reserveSeat(selectedSeatId);
-        });
+      // This no-op line left as-is (original code)
+      document.getElementById("confirm-reserve-btn");
+
+      async function reserveSeatLocal(seatNumber) {
+        console.log("====================================");
+        console.log("🔄 reserveSeatLocal CALLED");
+        console.log("Seat Number:", seatNumber);
+        console.log("Current Room ID:", localCurrentRoom);
+        console.log("All Rooms:", localRooms);
+        console.log("====================================");
+        
+        const roomId = localCurrentRoom;
+        const seatId = `seat-${seatNumber}`;
+        const room = localRooms[roomId];
+
+        if (!room) {
+          console.error("❌ ROOM NOT FOUND!");
+          showStatusMessage("Room not found!", "error");
+          return;
+        }
+
+        console.log("✅ Room found:", room);
+
+        const expirationTime = Date.now() + 30 * 60 * 1000;
+
+        if (!room.reservations) {
+          console.log("Initializing reservations object");
+          room.reservations = {};
+        }
+
+        const existing = room.reservations[seatId];
+        console.log("Existing reservation?", existing);
+        
+        if (existing && existing.expires > Date.now()) {
+          console.warn("⚠️ Seat already reserved!");
+          showStatusMessage("Seat is already reserved!", "error");
+          return;
+        }
+
+        console.log("Creating new reservation...");
+        room.reservations[seatId] = {
+          userId: userId,
+          reservedAt: Date.now(),
+          expires: expirationTime,
+        };
+
+        console.log("✅ Reservation created:", room.reservations[seatId]);
+
+        showStatusMessage(
+          `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
+          "success"
+        );
+
+        console.log("Re-rendering seat map...");
+        renderSeatMap(room);
+        checkUserReservationLocal(room);
+        console.log("====================================");
+      }
+
+      function cancelSeatLocal(seatNumber) {
+        console.log("🗑 cancelSeatLocal CALLED for seat", seatNumber);
+
+        const roomId = localCurrentRoom;
+        const room = localRooms[roomId];
+        const seatId = `seat-${seatNumber}`;
+
+        if (!room || !room.reservations || !room.reservations[seatId]) {
+          console.warn("No reservation found to cancel");
+          return;
+        }
+
+        delete room.reservations[seatId];
+
+        localRooms[roomId] = room;
+        renderSeatMap(localRooms[roomId]);
+        checkUserReservationLocal(localRooms[roomId]);
+
+        showStatusMessage(`Reservation for Seat S${seatNumber} has been cancelled.`, "success");
+      }
 
       function handleRoomSelection(roomId) {
         if (unsubscribeRoomListener) {
@@ -443,6 +823,7 @@
             } else {
               document.getElementById("current-room-name").textContent =
                 "Room Not Found";
+
               document.getElementById("seat-map-visualization").innerHTML =
                 '<p class="text-center text-red-500 mt-12">Room data could not be loaded.</p>';
             }
@@ -453,170 +834,265 @@
         );
       }
 
-      // --- Rendering Logic ---
+      // ---------------------------------------------------------------------
+      // Rendering Logic
+      // ---------------------------------------------------------------------
 
       function renderSeatMap(room) {
+        console.log("🎨 RENDERING SEAT MAP");
+        console.log("Room:", room.name);
+        console.log("Reservations:", room.reservations);
         const mapContainer = document.getElementById("seat-map-visualization");
         mapContainer.innerHTML = "";
         document.getElementById("current-room-name").textContent = room.name;
 
-        const occupiedCount = room.detected_occupancy || 0;
-        const totalSeats = room.total_seats || 0;
+        // Room Info
+        const roomInfoDiv = document.createElement("div");
+        roomInfoDiv.className =
+          "col-span-full mb-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900 dark:to-blue-900 rounded-lg border border-indigo-200 dark:border-indigo-700";
+
+        const occupancyStatus =
+          room.detected_occupancy === 0
+            ? '<span class="text-green-600 dark:text-green-400 font-bold">🟢 Available - No one inside</span>'
+            : `<span class="text-red-600 dark:text-red-400 font-bold">🔴 Occupied - ${room.detected_occupancy} people detected by AI</span>`;
+
+        roomInfoDiv.innerHTML = `
+          <div class="mb-4">
+            <p class="text-lg font-semibold mb-2">${occupancyStatus}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              ${room.description || "Study room available for booking"}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span
+              class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium"
+            >
+              👥 Capacity: ${room.capacity || room.total_seats} people
+            </span>
+            ${
+              room.has_projector
+                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📽️ Projector</span>'
+                : ""
+            }
+            ${
+              room.has_whiteboard
+                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📝 Whiteboard</span>'
+                : ""
+            }
+            ${
+              room.has_computers
+                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">💻 Computers</span>'
+                : ""
+            }
+          </div>
+
+          <div class="pt-4 border-t border-indigo-200 dark:border-indigo-700">
+            ${
+              room.detected_occupancy === 0
+                ? `<button
+                     onclick="showReserveRoomModal('${room.id}')"
+                     class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-bold text-lg shadow-lg hover:shadow-xl"
+                   >
+                     ✓ Reserve This Room
+                   </button>`
+                : `<button
+                     disabled
+                     class="w-full px-6 py-3 bg-gray-400 text-white rounded-lg font-bold text-lg cursor-not-allowed opacity-60"
+                   >
+                     ✗ Room Currently Occupied
+                   </button>
+                   <p class="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
+                     Wait for the room to be empty before reserving
+                   </p>`
+            }
+          </div>
+        `;
+        mapContainer.appendChild(roomInfoDiv);
+
+        // Occupancy Bar
+        const occupancyDiv = document.createElement("div");
+        occupancyDiv.className =
+          "col-span-full p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700";
+
+        const maxPeople = room.capacity || 12;
+        const currentPeople = room.detected_occupancy || 0;
+        const percentFull = Math.min((currentPeople / maxPeople) * 100, 100);
+
+        occupancyDiv.innerHTML = `
+          <h3 class="text-lg font-bold mb-3">
+            Real-Time Occupancy (AI Detection)
+          </h3>
+
+          <div class="mb-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span>People Inside: <strong>${currentPeople}</strong></span>
+              <span>Max Capacity: <strong>${maxPeople}</strong></span>
+            </div>
+
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6">
+              <div
+                class="h-6 rounded-full transition-all duration-500 flex items-center justify-center text-white text-xs font-bold"
+                style="width: ${percentFull}%; background-color: ${
+          percentFull === 0
+            ? "#10b981"
+            : percentFull < 50
+            ? "#f59e0b"
+            : "#ef4444"
+        };"
+              >
+                ${percentFull > 0 ? `${Math.round(percentFull)}%` : ""}
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            📹 Live camera feed monitoring via YOLO AI detection
+          </p>
+        `;
+        mapContainer.appendChild(occupancyDiv);
+
+        // Seats
+        const seatsDiv = document.createElement("div");
+        seatsDiv.className = "col-span-full";
+
+        const totalSeats = room.total_seats || room.capacity || 12;
         const reservations = room.reservations || {};
-        const currentTime = Date.now();
+        const now = Date.now();
 
-        const actualOccupied = Math.min(occupiedCount, totalSeats);
+        const seatsHtml = Array.from({ length: totalSeats }, (_, i) => {
+          const seatNumber = i + 1;
+          const seatKey = `seat-${seatNumber}`;
+          const reservation = reservations[seatKey];
+          const hasActiveReservation =
+            reservation && reservation.expires && reservation.expires > now;
+          const reservedByUser =
+            hasActiveReservation && reservation.userId === userId;
+          const isOccupied = i < currentPeople;
+          const isAvailable = !isOccupied && !hasActiveReservation;
 
-        for (let i = 1; i <= totalSeats; i++) {
-          const seatBox = document.createElement("div");
-          const seatId = `seat-${i}`;
-          seatBox.classList.add(
-            "seat-box",
-            "rounded-lg",
-            "shadow-md",
-            "p-2",
-            "font-bold",
-            "text-sm"
-          );
-          seatBox.dataset.seatId = i;
-          seatBox.innerHTML = `S${i}<span class="text-xs font-normal opacity-75">${room.id}</span>`;
+          const statusClass = isOccupied
+            ? "bg-red-500 text-white"
+            : hasActiveReservation
+            ? `bg-yellow-400 text-gray-900 ${
+                reservedByUser ? "ring-2 ring-indigo-400" : ""
+              }`
+            : "bg-green-500 text-white hover:bg-green-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-300";
 
-          let status = "available";
+          const label = isOccupied
+            ? "Occupied"
+            : hasActiveReservation
+            ? reservedByUser
+              ? "Yours"
+              : "Reserved"
+            : "Available";
 
-          const reservation = reservations[seatId];
-          if (reservation) {
-            if (reservation.expires < currentTime) {
-              status = "expired";
-              clearExpiredReservation(room.id, seatId);
-            } else {
-              status = "reserved";
-              seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Reserved</span>`;
+          // If available, call window.showConfirmationModal(seatNumber)
+          let actionAttr = "";
+
+          // GUEST users → cannot reserve or cancel
+          if (isGuestUser) {
+
+            if (isAvailable) {
+              // Guest tries to click a green seat: show login popup
+              actionAttr = `onclick="window.showGuestRestriction()"`;
             }
-          }
 
-          if (status !== "reserved" && i <= actualOccupied) {
-            status = "occupied";
-            seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Occupied</span>`;
-          }
-
-          if (status === "occupied") {
-            seatBox.classList.add("status-red", "text-white");
-          } else if (status === "reserved") {
-            seatBox.classList.add("status-yellow", "text-gray-900");
-            if (reservation.userId === userId) {
-              seatBox.classList.add(
-                "border-4",
-                "border-indigo-600",
-                "dark:border-indigo-400"
-              );
-              seatBox.innerHTML = `S${i}<span class="text-xs font-normal block">Your Hold</span>`;
+            if (reservedByUser) {
+              // Guests never reserve, but keep logic consistent
+              actionAttr = `onclick="window.showGuestRestriction()"`;
             }
+
+          // LOGGED-IN users
           } else {
-            seatBox.classList.add("status-green", "text-white");
-            seatBox.addEventListener("click", () => showConfirmationModal(i));
+
+            if (isAvailable) {
+              // User can reserve
+              actionAttr = `onclick="window.showConfirmationModal(${seatNumber})"`;
+            }
+
+            if (reservedByUser) {
+              // Allow user to cancel their own active reservation
+              actionAttr = `onclick="window.showCancelSeatModal(${seatNumber})"`;
+            }
+
           }
 
-          mapContainer.appendChild(seatBox);
-        }
+          return `
+            <button type="button"
+              ${actionAttr}
+              data-seat-number="${seatNumber}"
+              data-seat-available="${isAvailable}"
+              class="seat-box h-14 rounded-lg flex flex-col items-center justify-center text-xs font-bold transition ${statusClass}">
+              <span>S${seatNumber}</span>
+              <span class="text-[10px] font-semibold opacity-90">${label}</span>
+            </button>
+          `;
+        }).join("");
+
+
+        seatsDiv.innerHTML = `
+          <div class="grid grid-cols-6 gap-2 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            ${seatsHtml}
+          </div>
+          <p class="text-xs text-center mt-2 text-gray-500">
+            Tap a green seat to reserve it for 30 minutes.
+          </p>
+        `;
+        mapContainer.appendChild(seatsDiv);
       }
 
-      // --- Reservation & Cleanup ---
+      // ---------------------------------------------------------------------
+      // Room Reservation Modal (whole-room)
+      // ---------------------------------------------------------------------
 
-      async function clearExpiredReservation(roomId, seatId) {
-        const roomDocRef = doc(getRoomCollectionRef(), roomId);
+      window.showReserveRoomModal = function (roomId) {
+        const room =
+          localRooms[roomId] || (firebaseConfig && currentRoomId
+            ? { id: currentRoomId }
+            : null);
 
-        try {
-          await runTransaction(db, async (transaction) => {
-            const roomDoc = await transaction.get(roomDocRef);
-            if (roomDoc.exists()) {
-              const reservations = roomDoc.data().reservations || {};
+        if (!room) return;
 
-              if (
-                reservations[seatId] &&
-                reservations[seatId].expires < Date.now()
-              ) {
-                delete reservations[seatId];
-                transaction.update(roomDocRef, { reservations: reservations });
-                console.log(
-                  `Cleaned up expired reservation for ${seatId} in ${roomId}.`
-                );
-              }
-            }
-          });
-        } catch (e) {
-          console.error("Transaction failed to clear expired reservation:", e);
-        }
-      }
+        selectedSeatId = null;
 
-      async function reserveSeat(seatNumber) {
-        const roomId = currentRoomId;
-        const seatId = `seat-${seatNumber}`;
-        const roomDocRef = doc(getRoomCollectionRef(), roomId);
-        const expirationTime = Date.now() + 30 * 60 * 1000;
+        document.getElementById("modal-title").textContent = "Reserve Room";
+        document.getElementById("modal-message").innerHTML = `
+          Do you want to reserve <strong>${room.name || "Room " + roomId}</strong>?<br>
+          <span class="text-sm text-gray-600 dark:text-gray-300">
+            This reserves the entire room for your session.
+          </span>
+        `;
+        document.getElementById("modal-seat-id").textContent =
+          room.name || roomId;
 
-        try {
-          await runTransaction(db, async (transaction) => {
-            const roomDoc = await transaction.get(roomDocRef);
-            if (!roomDoc.exists()) {
-              throw new Error("Room does not exist!");
-            }
+        const modal = document.getElementById("confirmation-modal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
 
-            const reservations = roomDoc.data().reservations || {};
-            const currentReservation = reservations[seatId];
-
-            if (currentReservation && currentReservation.expires > Date.now()) {
-              throw new Error("Seat was just reserved by another user!");
-            }
-
-            const newReservation = {
-              userId: userId,
-              reservedAt: serverTimestamp(),
-              expires: expirationTime,
-            };
-
-            reservations[seatId] = newReservation;
-
-            transaction.update(roomDocRef, { reservations: reservations });
-
-            showStatusMessage(
-              `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
-              "success"
-            );
-          });
-        } catch (e) {
-          console.error("Reservation failed:", e);
+        const confirmBtn = document.getElementById("confirm-reserve-btn");
+        confirmBtn.onclick = () => {
+          closeModal();
           showStatusMessage(
-            e.message.includes("reserved")
-              ? "Seat was taken! Please try another."
-              : "Reservation failed due to an error.",
-            "error"
+            `Room ${room.name || roomId} reservation flow not implemented in this demo.`,
+            "success"
           );
-        }
-      }
+        };
+      };
 
-      // --- Status & Timer Functions ---
+      // ---------------------------------------------------------------------
+      // Reservation Timers (Local + Firebase)
+      // ---------------------------------------------------------------------
 
-      function showStatusMessage(message, type) {
-        console.log(`[Status ${type.toUpperCase()}]: ${message}`);
-        const header = document.querySelector("header");
-        const statusDiv = document.createElement("div");
-        statusDiv.textContent = message;
-        statusDiv.className = `p-3 text-center text-white font-semibold ${
-          type === "success" ? "bg-green-600" : "bg-red-600"
-        } transition-all duration-300`;
-        header.appendChild(statusDiv);
-        setTimeout(() => statusDiv.remove(), 3000);
-      }
-
-      function checkUserReservation(room) {
+      function checkUserReservationLocal(room) {
         const reservations = room.reservations || {};
         const userRes = Object.keys(reservations).find(
           (key) =>
             reservations[key].userId === userId &&
             reservations[key].expires > Date.now()
         );
-        const timerEl = document.getElementById("reservation-timer");
 
+        const timerEl = document.getElementById("reservation-timer");
         clearInterval(timerEl.timerInterval);
 
         if (userRes) {
@@ -642,25 +1118,240 @@
         }
       }
 
-      // --- Modal Functions ---
+      function checkUserReservation(room) {
+        const reservations = room.reservations || {};
+        const userRes = Object.keys(reservations).find(
+          (key) =>
+            reservations[key].userId === userId &&
+            reservations[key].expires > Date.now()
+        );
+
+        const timerEl = document.getElementById("reservation-timer");
+        clearInterval(timerEl.timerInterval);
+
+        if (userRes) {
+          const expires = reservations[userRes].expires;
+          const seatNumber = userRes.split("-")[1];
+
+          const updateTimer = () => {
+            const remaining = expires - Date.now();
+            if (remaining > 0) {
+              const minutes = Math.floor(remaining / 60000);
+              const seconds = Math.floor((remaining % 60000) / 1000);
+              timerEl.innerHTML = `S${seatNumber} expires in ${minutes}m ${seconds}s`;
+            } else {
+              timerEl.innerHTML = `Your hold on S${seatNumber} has expired.`;
+              clearInterval(timerEl.timerInterval);
+            }
+          };
+
+          updateTimer();
+          timerEl.timerInterval = setInterval(updateTimer, 1000);
+        } else {
+          timerEl.innerHTML = "N/A";
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Reservation Flow (Firebase mode)
+      // ---------------------------------------------------------------------
+
+      async function reserveSeat(seatNumber) {
+        if (!isAuthReady) {
+          showStatusMessage(
+            "Authentication not ready. Please wait...",
+            "error"
+          );
+          return;
+        }
+
+        const roomId = currentRoomId;
+        if (!roomId) {
+          showStatusMessage("Please select a room first.", "error");
+          return;
+        }
+
+        const roomDocRef = doc(getRoomCollectionRef(), roomId);
+        const seatId = `seat-${seatNumber}`;
+        const expirationTime = Date.now() + 30 * 60 * 1000;
+
+        try {
+          await runTransaction(db, async (transaction) => {
+            const roomDoc = await transaction.get(roomDocRef);
+            if (!roomDoc.exists()) {
+              throw new Error("Room not found");
+            }
+
+            const roomData = roomDoc.data();
+            const reservations = roomData.reservations || {};
+            const currentReservation = reservations[seatId];
+
+            if (currentReservation && currentReservation.expires > Date.now()) {
+              throw new Error("Seat was just reserved by another user!");
+            }
+
+            const newReservation = {
+              userId: userId,
+              reservedAt: serverTimestamp(),
+              expires: expirationTime,
+            };
+
+            reservations[seatId] = newReservation;
+            transaction.update(roomDocRef, { reservations });
+
+            showStatusMessage(
+              `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
+              "success"
+            );
+          });
+        } catch (e) {
+          console.error("Reservation failed:", e);
+          showStatusMessage(
+            e.message.includes("reserved")
+              ? "Seat was taken! Please try another."
+              : "Reservation failed due to an error.",
+            "error"
+          );
+        }
+      }
+
+      // ---------------------------------------------------------------------
+      // Status Helper
+      // ---------------------------------------------------------------------
+
+      function showStatusMessage(message, type) {
+        console.log(`[Status ${type.toUpperCase()}]: ${message}`);
+
+        const header = document.querySelector("header");
+        const statusDiv = document.createElement("div");
+
+        statusDiv.textContent = message;
+        statusDiv.className = `p-3 text-center text-white font-semibold ${
+          type === "success" ? "bg-green-600" : "bg-red-600"
+        } transition-all duration-300`;
+
+        header.appendChild(statusDiv);
+        setTimeout(() => statusDiv.remove(), 3000);
+      }
+
+      // ---------------------------------------------------------------------
+      // Modal Helpers
+      // ---------------------------------------------------------------------
+
+      let pendingReservationType = null; // 'seat' or 'room'
+      let pendingReservationTarget = null;
 
       function showConfirmationModal(seatNumber) {
+        console.log("🎯 Opening modal for seat:", seatNumber);
+        
+        pendingReservationType = 'seat';
+        pendingReservationTarget = seatNumber;
         selectedSeatId = seatNumber;
+
+        document.getElementById("modal-title").textContent = "Confirm Seat Reservation";
+        document.getElementById("modal-message").innerHTML = `
+          Do you want to reserve <strong>Seat S${seatNumber}</strong> for 30 minutes?
+        `;
         document.getElementById("modal-seat-id").textContent = `S${seatNumber}`;
-        document
-          .getElementById("confirmation-modal")
-          .classList.remove("hidden");
-        document.getElementById("confirmation-modal").classList.add("flex");
+
+        const modal = document.getElementById("confirmation-modal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
       }
+      window.showCancelSeatModal = function (seatNumber) {
+        pendingReservationType = "cancel-seat";
+        pendingReservationTarget = seatNumber;
+
+        document.getElementById("modal-title").textContent = "Cancel Reservation";
+        document.getElementById("modal-message").innerHTML = `
+            Do you want to <strong>cancel</strong> your reservation for 
+            <strong>Seat S${seatNumber}</strong>?
+        `;
+
+        const modal = document.getElementById("confirmation-modal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      };
+
+      window.showReserveRoomModal = function (roomId) {
+        console.log("🎯 Opening modal for room:", roomId);
+        
+        pendingReservationType = 'room';
+        pendingReservationTarget = roomId;
+        
+        const room = localRooms[roomId] || (firebaseConfig && currentRoomId ? { id: currentRoomId } : null);
+        if (!room) return;
+
+        document.getElementById("modal-title").textContent = "Reserve Room";
+        document.getElementById("modal-message").innerHTML = `
+          Do you want to reserve <strong>${room.name || "Room " + roomId}</strong>?<br>
+          <span class="text-sm text-gray-600 dark:text-gray-300">
+            This reserves the entire room for your session.
+          </span>
+        `;
+        document.getElementById("modal-seat-id").textContent = room.name || roomId;
+
+        const modal = document.getElementById("confirmation-modal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      };
 
       function closeModal() {
-        document.getElementById("confirmation-modal").classList.add("hidden");
-        document.getElementById("confirmation-modal").classList.remove("flex");
+        const modal = document.getElementById("confirmation-modal");
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
         selectedSeatId = null;
+        pendingReservationType = null;
+        pendingReservationTarget = null;
       }
 
-      // --- Initialization ---
+      // Expose to window
+      window.showConfirmationModal = showConfirmationModal;
+      window.closeModal = closeModal;
+
+      // ---------------------------------------------------------------------
+      // Initialization - Attach confirm button ONCE
+      // ---------------------------------------------------------------------
+
+      console.log("📱 Attaching confirm button listener (simple)");
+
+      const confirmBtn = document.getElementById("confirm-reserve-btn");
+
+      confirmBtn.addEventListener("click", () => {
+        console.log(
+          "✅ Confirm clicked! Type:",
+          pendingReservationType,
+          "Target:",
+          pendingReservationTarget
+        );
+
+        // 1) Cancel seat
+        if (pendingReservationType === "cancel-seat") {
+            const seatNum = pendingReservationTarget;
+            console.log("🗑 Cancelling reservation for seat", seatNum);
+            cancelSeatLocal(seatNum);
+            closeModal();
+            return;
+        }
+
+        if (pendingReservationType === "seat") {
+          const seatNum = pendingReservationTarget;
+          console.log("➡️ Calling reserveSeatLocal with seat:", seatNum);
+          reserveSeatLocal(seatNum);
+        } else if (pendingReservationType === "room") {
+          console.log("Room reservation not implemented");
+          showStatusMessage("Room reservation coming soon!", "success");
+        }
+
+        closeModal();
+      })
+
+      window.reserveSeatLocal = reserveSeatLocal;
+      window.reserveSeat = reserveSeat;
+
       initFirebase();
+
+
     </script>
   </body>
 </html>
