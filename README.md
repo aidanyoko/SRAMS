@@ -17,7 +17,7 @@ Programs Needed to run the website:
   - VS Code
   - Python
   - Pip
-  -Laravel
+  - Laravel
   - PHP 8.2+
   - MySQL
   - Node js
