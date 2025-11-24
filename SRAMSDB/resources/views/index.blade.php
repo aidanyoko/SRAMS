@@ -200,7 +200,8 @@
         </div>
 
         <!-- Python API Link -->
-        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs">
+        @auth
+          <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs">
           <p class="font-semibold mb-1">Manage Rooms:</p>
           <a
             href="http://127.0.0.1:9000/classroom"
@@ -211,6 +212,8 @@
             Add/Edit rooms in Python system
           </a>
         </div>
+        @endauth
+        
 
         <label for="room-dropdown" class="block text-sm font-medium mb-2">
           Study Room:
@@ -243,7 +246,7 @@
         class="seating-area w-full lg:w-2/4 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"
       >
         <h2 class="text-3xl font-bold mb-4 text-center">
-          Room:
+          
           <span
             id="current-room-name"
             class="text-indigo-600 dark:text-indigo-400"
@@ -847,68 +850,7 @@
         document.getElementById("current-room-name").textContent = room.name;
 
         // Room Info
-        const roomInfoDiv = document.createElement("div");
-        roomInfoDiv.className =
-          "col-span-full mb-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900 dark:to-blue-900 rounded-lg border border-indigo-200 dark:border-indigo-700";
-
-        const occupancyStatus =
-          room.detected_occupancy === 0
-            ? '<span class="text-green-600 dark:text-green-400 font-bold">🟢 Available - No one inside</span>'
-            : `<span class="text-red-600 dark:text-red-400 font-bold">🔴 Occupied - ${room.detected_occupancy} people detected by AI</span>`;
-
-        roomInfoDiv.innerHTML = `
-          <div class="mb-4">
-            <p class="text-lg font-semibold mb-2">${occupancyStatus}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
-              ${room.description || "Study room available for booking"}
-            </p>
-          </div>
-
-          <div class="flex flex-wrap gap-2 mb-4">
-            <span
-              class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium"
-            >
-              👥 Capacity: ${room.capacity || room.total_seats} people
-            </span>
-            ${
-              room.has_projector
-                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📽️ Projector</span>'
-                : ""
-            }
-            ${
-              room.has_whiteboard
-                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">📝 Whiteboard</span>'
-                : ""
-            }
-            ${
-              room.has_computers
-                ? '<span class="px-3 py-1 bg-white dark:bg-gray-800 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm rounded-full font-medium">💻 Computers</span>'
-                : ""
-            }
-          </div>
-
-          <div class="pt-4 border-t border-indigo-200 dark:border-indigo-700">
-            ${
-              room.detected_occupancy === 0
-                ? `<button
-                     onclick="showReserveRoomModal('${room.id}')"
-                     class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-bold text-lg shadow-lg hover:shadow-xl"
-                   >
-                     ✓ Reserve This Room
-                   </button>`
-                : `<button
-                     disabled
-                     class="w-full px-6 py-3 bg-gray-400 text-white rounded-lg font-bold text-lg cursor-not-allowed opacity-60"
-                   >
-                     ✗ Room Currently Occupied
-                   </button>
-                   <p class="text-sm text-red-600 dark:text-red-400 mt-2 text-center">
-                     Wait for the room to be empty before reserving
-                   </p>`
-            }
-          </div>
-        `;
-        mapContainer.appendChild(roomInfoDiv);
+        
 
         // Occupancy Bar
         const occupancyDiv = document.createElement("div");
@@ -1085,72 +1027,108 @@
       // ---------------------------------------------------------------------
 
       function checkUserReservationLocal(room) {
-        const reservations = room.reservations || {};
-        const userRes = Object.keys(reservations).find(
-          (key) =>
-            reservations[key].userId === userId &&
-            reservations[key].expires > Date.now()
-        );
+          const reservations = room.reservations || {};
+          const timerEl = document.getElementById("reservation-timer");
 
-        const timerEl = document.getElementById("reservation-timer");
-        clearInterval(timerEl.timerInterval);
+          clearInterval(timerEl.timerInterval);
 
-        if (userRes) {
-          const expires = reservations[userRes].expires;
+          const userRes = Object.keys(reservations).find(
+              (key) => {
+                  const r = reservations[key];
+                  return r &&
+                        r.userId === userId &&
+                        r.expires &&
+                        Number(r.expires) > Date.now();
+              }
+          );
+
+          if (!userRes) {
+              timerEl.innerHTML = "N/A";
+              return;
+          }
+
+          let expires = reservations[userRes].expires;
+
+          // Ensure expires is a number
+          expires = Number(expires);
+          if (isNaN(expires)) {
+              timerEl.innerHTML = "N/A";
+              return;
+          }
+
           const seatNumber = userRes.split("-")[1];
 
           const updateTimer = () => {
-            const remaining = expires - Date.now();
-            if (remaining > 0) {
-              const minutes = Math.floor(remaining / 60000);
-              const seconds = Math.floor((remaining % 60000) / 1000);
-              timerEl.innerHTML = `S${seatNumber} expires in ${minutes}m ${seconds}s`;
-            } else {
-              timerEl.innerHTML = `Your hold on S${seatNumber} has expired.`;
-              clearInterval(timerEl.timerInterval);
-            }
+              const remaining = expires - Date.now();
+
+              if (remaining > 0) {
+                  const minutes = Math.floor(remaining / 60000);
+                  const seconds = Math.floor((remaining % 60000) / 1000);
+                  timerEl.innerHTML = `S${seatNumber} expires in ${minutes}m ${seconds}s`;
+              } else {
+                  timerEl.innerHTML = `Your hold on S${seatNumber} has expired.`;
+                  clearInterval(timerEl.timerInterval);
+              }
           };
 
           updateTimer();
           timerEl.timerInterval = setInterval(updateTimer, 1000);
-        } else {
-          timerEl.innerHTML = "N/A";
-        }
-      }
+       }
+
 
       function checkUserReservation(room) {
-        const reservations = room.reservations || {};
-        const userRes = Object.keys(reservations).find(
-          (key) =>
-            reservations[key].userId === userId &&
-            reservations[key].expires > Date.now()
-        );
+          const reservations = room.reservations || {};
+          const timerEl = document.getElementById("reservation-timer");
 
-        const timerEl = document.getElementById("reservation-timer");
-        clearInterval(timerEl.timerInterval);
+          clearInterval(timerEl.timerInterval);
 
-        if (userRes) {
-          const expires = reservations[userRes].expires;
+          const userRes = Object.keys(reservations).find(
+              (key) => {
+                  const r = reservations[key];
+                  return r &&
+                        r.userId === userId &&
+                        r.expires &&
+                        Number(r.expires) > Date.now();
+              }
+          );
+
+          if (!userRes) {
+              timerEl.innerHTML = "N/A";
+              return;
+          }
+
+          let expires = reservations[userRes].expires;
+
+          // Firestore sometimes returns Timestamp
+          if (typeof expires === "object" && expires.toMillis) {
+              expires = expires.toMillis();
+          } else {
+              expires = Number(expires);
+          }
+
+          if (isNaN(expires)) {
+              timerEl.innerHTML = "N/A";
+              return;
+          }
+
           const seatNumber = userRes.split("-")[1];
 
           const updateTimer = () => {
-            const remaining = expires - Date.now();
-            if (remaining > 0) {
-              const minutes = Math.floor(remaining / 60000);
-              const seconds = Math.floor((remaining % 60000) / 1000);
-              timerEl.innerHTML = `S${seatNumber} expires in ${minutes}m ${seconds}s`;
-            } else {
-              timerEl.innerHTML = `Your hold on S${seatNumber} has expired.`;
-              clearInterval(timerEl.timerInterval);
-            }
+              const remaining = expires - Date.now();
+
+              if (remaining > 0) {
+                  const minutes = Math.floor(remaining / 60000);
+                  const seconds = Math.floor((remaining % 60000) / 1000);
+                  timerEl.innerHTML = `S${seatNumber} expires in ${minutes}m ${seconds}s`;
+              } else {
+                  timerEl.innerHTML = `Your hold on S${seatNumber} has expired.`;
+                  clearInterval(timerEl.timerInterval);
+              }
           };
 
           updateTimer();
           timerEl.timerInterval = setInterval(updateTimer, 1000);
-        } else {
-          timerEl.innerHTML = "N/A";
-        }
-      }
+       }
 
       // ---------------------------------------------------------------------
       // Reservation Flow (Firebase mode)
