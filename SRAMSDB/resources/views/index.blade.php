@@ -70,6 +70,22 @@
         }
       }
     </style>
+    <!-- Firebase Configuration (Injected from Laravel) -->
+    <script>
+        console.log("🔥 appId from Laravel =", "{{ config('firebase.institution_id') }}");
+
+        @if(config('firebase.enabled'))
+            window.__firebase_config = @json(config('firebase.config'));
+            window.__app_id = "{{ config('firebase.institution_id') }}";
+            window.__initial_auth_token = null;
+        @else
+            window.__firebase_config = null;
+            window.__app_id = "local-mode";
+            window.__initial_auth_token = null;
+        @endif
+    </script>
+
+
   </head>
 
   <body
@@ -318,6 +334,7 @@
         getFirestore,
         doc,
         setDoc,
+        getDoc,          // ← ADD THIS
         onSnapshot,
         collection,
         query,
@@ -332,8 +349,8 @@
 
       const firebaseConfig =
         typeof __firebase_config !== "undefined"
-          ? JSON.parse(__firebase_config)
-          : null;
+            ? __firebase_config
+            : null;
 
       const appId =
         typeof __app_id !== "undefined" ? __app_id : "default-study-app";
@@ -406,7 +423,7 @@
             document.getElementById("loading-indicator").textContent =
               "Loading Rooms...";
 
-            await fetchRoomList();
+            await loadRoomsLocally();
             startAICountPolling();
           });
         } catch (error) {
@@ -491,9 +508,18 @@
             dropdown.appendChild(option);
           });
 
+          // ✨ NEW: Sync to Firebase if enabled
+          if (firebaseConfig && db) {
+            await syncRoomsToFirebase(roomKeys, counts);
+          }
+
           if (roomKeys.length > 0) {
             dropdown.value = roomKeys[0];
-            handleRoomSelectionLocal(roomKeys[0]);
+            if (firebaseConfig && db) {
+              handleRoomSelection(roomKeys[0]);
+            } else {
+              handleRoomSelectionLocal(roomKeys[0]);
+            }
           }
 
           document.getElementById("loading-indicator").style.display = "none";
@@ -508,6 +534,63 @@
             "Python API not found. <br>" +
             '<a href="http://127.0.0.1:9000/classroom" target="_blank" class="text-indigo-600 hover:underline">Start Python server and create rooms →</a>' +
             "</div>";
+        }
+      }
+
+      /**
+ * Sync rooms from Python API to Firebase
+ */
+      async function syncRoomsToFirebase(roomIds, occupancyCounts) {
+        console.log("🔄 Syncing rooms to Firebase...");
+
+        try {
+          for (const roomId of roomIds) {
+            const roomDocRef = doc(getRoomCollectionRef(), roomId);
+            
+            // Check if room exists in Firebase
+            const roomSnapshot = await getDoc(roomDocRef);
+            
+            if (!roomSnapshot.exists()) {
+              // Room doesn't exist - CREATE it
+              console.log(`✨ Creating new room in Firebase: ${roomId}`);
+              
+              const newRoomData = {
+                id: roomId,
+                name: getRoomName(roomId),
+                description: getRoomDescription(roomId),
+                room_number: roomId,
+                slug: roomId.toLowerCase(),
+                total_seats: 12,
+                seat_capacity: 12,
+                capacity: 12,
+                detected_occupancy: occupancyCounts[roomId] || 0,
+                has_projector: getRoomFeature(roomId, "projector"),
+                has_whiteboard: getRoomFeature(roomId, "whiteboard"),
+                has_computers: getRoomFeature(roomId, "computer"),
+                reservations: {},
+                is_available: (occupancyCounts[roomId] || 0) === 0,
+              };
+              
+              await setDoc(roomDocRef, newRoomData);
+              console.log(`✅ Room ${roomId} created in Firebase`);
+              
+            } else {
+              // Room exists - UPDATE occupancy only
+              const currentData = roomSnapshot.data();
+              
+              await setDoc(roomDocRef, {
+                ...currentData,
+                detected_occupancy: occupancyCounts[roomId] || 0,
+                is_available: (occupancyCounts[roomId] || 0) === 0,
+              }, { merge: true });
+              
+              console.log(`✅ Room ${roomId} occupancy updated in Firebase`);
+            }
+          }
+          
+          console.log("✅ All rooms synced to Firebase");
+        } catch (error) {
+          console.error("❌ Error syncing rooms to Firebase:", error);
         }
       }
 
@@ -580,7 +663,8 @@
           const counts = await response.json();
           console.log("AI Detection Counts:", counts);
 
-          if (!firebaseConfig) {
+          // ===== LOCAL MODE =====
+          if (!firebaseConfig || !db) {
             localRooms = Object.keys(counts).reduce((acc, roomId) => {
               const currentOccupancy = counts[roomId];
               acc[roomId] = {
@@ -599,6 +683,59 @@
               renderSeatMap(localRooms[localCurrentRoom]);
               checkUserReservationLocal(localRooms[localCurrentRoom]);
             }
+          } 
+          // ===== FIREBASE MODE =====
+          else {
+            console.log("🔄 Updating Firebase with Python API occupancy data...");
+            
+            // Update each room's occupancy in Firebase
+            const updatePromises = Object.keys(counts).map(async (roomId) => {
+              const roomDocRef = doc(getRoomCollectionRef(), roomId);
+              const occupancyCount = counts[roomId];
+              
+              try {
+                // Check if room exists first
+                const roomSnapshot = await getDoc(roomDocRef);
+                
+                if (!roomSnapshot.exists()) {
+                  // Room doesn't exist in Firebase yet - create it
+                  console.log(`✨ Creating room ${roomId} in Firebase`);
+                  
+                  const newRoomData = {
+                    id: roomId,
+                    name: getRoomName(roomId),
+                    description: getRoomDescription(roomId),
+                    room_number: roomId,
+                    slug: roomId.toLowerCase(),
+                    total_seats: 12,
+                    seat_capacity: 12,
+                    capacity: 12,
+                    detected_occupancy: occupancyCount,
+                    has_projector: getRoomFeature(roomId, "projector"),
+                    has_whiteboard: getRoomFeature(roomId, "whiteboard"),
+                    has_computers: getRoomFeature(roomId, "computer"),
+                    reservations: {},
+                    is_available: occupancyCount === 0,
+                  };
+                  
+                  await setDoc(roomDocRef, newRoomData);
+                } else {
+                  // Room exists - update occupancy only (don't touch reservations)
+                  await setDoc(roomDocRef, {
+                    detected_occupancy: occupancyCount,
+                    is_available: occupancyCount === 0,
+                  }, { merge: true });
+                  
+                  console.log(`✅ Room ${roomId} occupancy: ${occupancyCount}`);
+                }
+              } catch (error) {
+                console.warn(`⚠️ Could not update room ${roomId}:`, error.message);
+              }
+            });
+            
+            // Wait for all updates to complete
+            await Promise.all(updatePromises);
+            console.log("✅ Firebase occupancy sync complete");
           }
 
           updateAIStatus("Connected", true);
@@ -630,6 +767,48 @@
 
       function getRoomCollectionRef() {
         return collection(db, `institutions/${appId}/rooms`);
+      }
+
+      async function syncAIToFirebase(counts) {
+        console.log("🔄 Syncing AI detections to Firebase...");
+
+        const updates = Object.entries(counts).map(async ([roomId, count]) => {
+          const roomRef = doc(getRoomCollectionRef(), roomId);
+
+          // Read existing room
+          const snap = await getDoc(roomRef);
+
+          // If room does NOT exist → create it
+          if (!snap.exists()) {
+            console.log(`✨ Creating missing room in Firebase: ${roomId}`);
+
+            await setDoc(roomRef, {
+              id: roomId,
+              name: getRoomName(roomId),
+              description: getRoomDescription(roomId),
+              total_seats: 12,
+              reservations: {},
+              detected_occupancy: count,
+              is_available: count === 0,
+            });
+
+            return;
+          }
+
+          // If room exists → update occupancy only
+          await setDoc(
+            roomRef,
+            {
+              detected_occupancy: count,
+              is_available: count === 0,
+            },
+            { merge: true }
+          );
+        });
+
+        await Promise.all(updates);
+
+        console.log("✅ Firebase occupancy updated successfully.");
       }
 
       async function populateInitialDataIfNeeded() {
@@ -698,7 +877,12 @@
 
           const option = document.createElement("option");
           option.value = room.id;
-          option.textContent = room.name;
+          
+          // Show occupancy in dropdown
+          const occupancy = room.detected_occupancy || 0;
+          const status = occupancy === 0 ? "🟢" : `🔴 ${occupancy} people`;
+          
+          option.textContent = `${room.name} - ${status}`;
           dropdown.appendChild(option);
         });
 
@@ -708,6 +892,9 @@
         }
 
         document.getElementById("loading-indicator").style.display = "none";
+        
+        // ✨ NEW: Start AI polling immediately after loading rooms
+        console.log("🎬 Starting Python API polling for Firebase mode...");
       }
 
       // ---------------------------------------------------------------------
@@ -805,34 +992,70 @@
         showStatusMessage(`Reservation for Seat S${seatNumber} has been cancelled.`, "success");
       }
 
-      function handleRoomSelection(roomId) {
+      async function handleRoomSelection(roomId) {
+          console.log("📌 Selecting room:", roomId);
+
+          currentRoomId = roomId; 
+
+          // 1️⃣ Ensure Firebase document exists before listening
+          if (firebaseConfig && db) {
+              const roomRef = doc(getRoomCollectionRef(), roomId);
+              const snap = await getDoc(roomRef);
+
+              if (!snap.exists()) {
+                  console.log("⚠️ Room missing in Firebase. Creating now...");
+
+                  await setDoc(roomRef, {
+                      id: roomId,
+                      name: getRoomName(roomId),
+                      description: getRoomDescription(roomId),
+                      total_seats: 12,
+                      reservations: {},
+                      detected_occupancy: 0,
+                      is_available: true,
+                  });
+              }
+          }
+
+          // 2️⃣ NOW attach the listener (the room definitely exists)
+          listenToRoomData(roomId);
+      }
+
+      let latestRoomSnapshot = null;
+
+      function listenToRoomData(roomId) {
+        const roomRef = doc(getRoomCollectionRef(), roomId);
+
         if (unsubscribeRoomListener) {
           unsubscribeRoomListener();
         }
-        currentRoomId = roomId;
-        listenToRoomData(roomId);
-      }
-
-      function listenToRoomData(roomId) {
-        const roomDocRef = doc(getRoomCollectionRef(), roomId);
 
         unsubscribeRoomListener = onSnapshot(
-          roomDocRef,
-          (docSnapshot) => {
-            if (docSnapshot.exists()) {
-              const roomData = { id: docSnapshot.id, ...docSnapshot.data() };
-              renderSeatMap(roomData);
-              checkUserReservation(roomData);
-            } else {
-              document.getElementById("current-room-name").textContent =
-                "Room Not Found";
+          roomRef,
+          (snap) => {
+            if (!snap.exists()) {
+              console.log(`⏳ Room ${roomId} not found in Firebase yet... waiting`);
 
-              document.getElementById("seat-map-visualization").innerHTML =
-                '<p class="text-center text-red-500 mt-12">Room data could not be loaded.</p>';
+              // Do NOT show an error. Firebase will update shortly.
+              document.getElementById("current-room-name").textContent = `Loading...`;
+
+              // Just wait—syncAIToFirebase will create it soon
+              return;
             }
+
+            // ✔ Room NOW exists!
+            latestRoomSnapshot = { id: snap.id, ...snap.data() };
+
+            console.log("🔥 Firebase snapshot received:", latestRoomSnapshot);
+
+            document.getElementById("current-room-name").textContent =
+              latestRoomSnapshot.name;
+
+            renderSeatMap(latestRoomSnapshot);
+            checkUserReservation(latestRoomSnapshot);
           },
-          (error) => {
-            console.error("Error listening to room data:", error);
+          (err) => {
+            console.error("Snapshot error:", err);
           }
         );
       }
@@ -844,13 +1067,12 @@
       function renderSeatMap(room) {
         console.log("🎨 RENDERING SEAT MAP");
         console.log("Room:", room.name);
+        console.log("AI Detected Occupancy:", room.detected_occupancy); // ← Add this log
         console.log("Reservations:", room.reservations);
+        
         const mapContainer = document.getElementById("seat-map-visualization");
         mapContainer.innerHTML = "";
         document.getElementById("current-room-name").textContent = room.name;
-
-        // Room Info
-        
 
         // Occupancy Bar
         const occupancyDiv = document.createElement("div");
@@ -858,7 +1080,7 @@
           "col-span-full p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700";
 
         const maxPeople = room.capacity || 12;
-        const currentPeople = room.detected_occupancy || 0;
+        const currentPeople = room.detected_occupancy || 0; // ← AI detection value
         const percentFull = Math.min((currentPeople / maxPeople) * 100, 100);
 
         occupancyDiv.innerHTML = `
@@ -910,7 +1132,10 @@
             reservation && reservation.expires && reservation.expires > now;
           const reservedByUser =
             hasActiveReservation && reservation.userId === userId;
+          
+          // ✨ Mark seat as occupied if AI detected someone AND seat number is within occupancy count
           const isOccupied = i < currentPeople;
+          
           const isAvailable = !isOccupied && !hasActiveReservation;
 
           const statusClass = isOccupied
@@ -929,35 +1154,22 @@
               : "Reserved"
             : "Available";
 
-          // If available, call window.showConfirmationModal(seatNumber)
           let actionAttr = "";
 
-          // GUEST users → cannot reserve or cancel
           if (isGuestUser) {
-
             if (isAvailable) {
-              // Guest tries to click a green seat: show login popup
               actionAttr = `onclick="window.showGuestRestriction()"`;
             }
-
             if (reservedByUser) {
-              // Guests never reserve, but keep logic consistent
               actionAttr = `onclick="window.showGuestRestriction()"`;
             }
-
-          // LOGGED-IN users
           } else {
-
             if (isAvailable) {
-              // User can reserve
               actionAttr = `onclick="window.showConfirmationModal(${seatNumber})"`;
             }
-
             if (reservedByUser) {
-              // Allow user to cancel their own active reservation
               actionAttr = `onclick="window.showCancelSeatModal(${seatNumber})"`;
             }
-
           }
 
           return `
@@ -971,7 +1183,6 @@
             </button>
           `;
         }).join("");
-
 
         seatsDiv.innerHTML = `
           <div class="grid grid-cols-6 gap-2 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
@@ -1155,9 +1366,27 @@
 
         try {
           await runTransaction(db, async (transaction) => {
-            const roomDoc = await transaction.get(roomDocRef);
+            let roomDoc = await transaction.get(roomDocRef);
+
+            // If room does NOT exist → CREATE IT instead of throwing an error
             if (!roomDoc.exists()) {
-              throw new Error("Room not found");
+              console.warn("⚠️ Room missing in Firebase. Creating it now...");
+
+              transaction.set(roomDocRef, {
+                id: roomId,
+                name: getRoomName(roomId),
+                description: getRoomDescription(roomId),
+                total_seats: 12,
+                reservations: {},
+                detected_occupancy: 0,
+                is_available: true,
+              });
+
+              // After creating, simulate roomDoc for the rest of the transaction
+              roomDoc = {
+                exists: () => true,
+                data: () => ({ reservations: {} }),
+              };
             }
 
             const roomData = roomDoc.data();
@@ -1168,20 +1397,15 @@
               throw new Error("Seat was just reserved by another user!");
             }
 
-            const newReservation = {
+            reservations[seatId] = {
               userId: userId,
               reservedAt: serverTimestamp(),
               expires: expirationTime,
             };
 
-            reservations[seatId] = newReservation;
             transaction.update(roomDocRef, { reservations });
-
-            showStatusMessage(
-              `Successfully reserved Seat S${seatNumber} for 30 minutes!`,
-              "success"
-            );
           });
+
         } catch (e) {
           console.error("Reservation failed:", e);
           showStatusMessage(
@@ -1192,6 +1416,52 @@
           );
         }
       }
+
+      async function cancelSeat(seatNumber) {
+        if (!isAuthReady) {
+            showStatusMessage("Authentication not ready. Please wait...", "error");
+            return;
+        }
+
+        const roomId = currentRoomId;
+        if (!roomId) {
+            showStatusMessage("Please select a room first.", "error");
+            return;
+        }
+
+        const roomDocRef = doc(getRoomCollectionRef(), roomId);
+        const seatId = `seat-${seatNumber}`;
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const roomDoc = await transaction.get(roomDocRef);
+
+                if (!roomDoc.exists()) {
+                    throw new Error("Room not found");
+                }
+
+                const data = roomDoc.data();
+                const reservations = data.reservations || {};
+
+                const existing = reservations[seatId];
+
+                if (!existing || existing.userId !== userId) {
+                    throw new Error("You cannot cancel this reservation.");
+                }
+
+                // Remove seat
+                delete reservations[seatId];
+
+                transaction.update(roomDocRef, { reservations });
+            });
+
+            showStatusMessage(`Reservation for S${seatNumber} cancelled.`, "success");
+
+        } catch (e) {
+            console.error("Cancel failed:", e);
+            showStatusMessage("Unable to cancel reservation.", "error");
+        }
+     }
 
       // ---------------------------------------------------------------------
       // Status Helper
@@ -1303,26 +1573,48 @@
           pendingReservationTarget
         );
 
-        // 1) Cancel seat
+        // 1️⃣ Cancel a seat
         if (pendingReservationType === "cancel-seat") {
             const seatNum = pendingReservationTarget;
-            console.log("🗑 Cancelling reservation for seat", seatNum);
-            cancelSeatLocal(seatNum);
+
+            if (firebaseConfig && db) {
+                console.log("🗑 Cancelling seat in FIREBASE:", seatNum);
+                cancelSeat(seatNum);
+            } else {
+                console.log("🗑 Cancelling seat in LOCAL MODE:", seatNum);
+                cancelSeatLocal(seatNum);
+            }
+
             closeModal();
             return;
         }
 
+        // 2️⃣ Reserve a seat
         if (pendingReservationType === "seat") {
-          const seatNum = pendingReservationTarget;
-          console.log("➡️ Calling reserveSeatLocal with seat:", seatNum);
-          reserveSeatLocal(seatNum);
-        } else if (pendingReservationType === "room") {
-          console.log("Room reservation not implemented");
-          showStatusMessage("Room reservation coming soon!", "success");
+            const seatNum = pendingReservationTarget;
+
+            if (firebaseConfig && db) {
+                console.log("➡️ Calling reserveSeat (FIREBASE) with seat:", seatNum);
+                reserveSeat(seatNum);
+            } else {
+                console.log("➡️ Calling reserveSeatLocal (LOCAL MODE) with seat:", seatNum);
+                reserveSeatLocal(seatNum);
+            }
+
+            closeModal();
+            return;
+        }
+
+        // 3️⃣ Reserve room (future)
+        if (pendingReservationType === "room") {
+            console.log("Room reservation not implemented");
+            showStatusMessage("Room reservation coming soon!", "success");
+            closeModal();
+            return;
         }
 
         closeModal();
-      })
+    });
 
       window.reserveSeatLocal = reserveSeatLocal;
       window.reserveSeat = reserveSeat;
